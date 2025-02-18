@@ -55,9 +55,13 @@ COLUMNS_MULTI_TURN = [
     "Model",
     "Multi Turn Overall Acc",
     "Base",
+    "Base Extended (Double)",
+    "Base Extended (Full)",
     "Miss Func",
     "Miss Param",
     "Long Context",
+    "Long Context Extended (Double)",
+    "Long Context Extended (Full)",
 ]
 
 
@@ -87,9 +91,13 @@ COLUMNS_OVERALL = [
     "Live Parallel Multiple AST",
     "Multi Turn Acc",
     "Multi Turn Base",
+    "Multi Turn Base Extended (Double)",
+    "Multi Turn Base Extended (Full)",
     "Multi Turn Miss Func",
     "Multi Turn Miss Param",
     "Multi Turn Long Context",
+    "Multi Turn Long Context Extended (Double)",
+    "Multi Turn Long Context Extended (Full)",
     "Relevance Detection",
     "Irrelevance Detection",
     "Organization",

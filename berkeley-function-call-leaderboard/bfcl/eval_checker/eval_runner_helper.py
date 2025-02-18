@@ -5,6 +5,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from httpx import get
+from tqdm import tqdm
+
 from bfcl._apply_function_credential_config import apply_function_credential_config
 from bfcl.constant import PROMPT_PATH, TEST_FILE_MAPPING
 from bfcl.eval_checker.constant import *
@@ -16,7 +19,6 @@ from bfcl.utils import (
     load_file,
     write_list_of_dicts_to_file,
 )
-from tqdm import tqdm
 
 
 def api_status_sanity_check_rest():
@@ -62,9 +64,7 @@ def api_status_sanity_check_executable():
     ground_truth = load_file(EXECTUABLE_API_GROUND_TRUTH_FILE_PATH)
     correct_count = 0
     errors = []
-    for data in tqdm(
-        ground_truth, total=len(ground_truth), desc="API Status Test (Non-REST)"
-    ):
+    for data in tqdm(ground_truth, total=len(ground_truth), desc="API Status Test (Non-REST)"):
         status = executable_checker_simple(
             data["ground_truth"][0],
             data["execution_result"][0],
@@ -77,9 +77,7 @@ def api_status_sanity_check_executable():
             errors.append((data, status))
 
     if correct_count != len(ground_truth):
-        raise BadAPIStatusError(
-            errors, f"{len(ground_truth) - correct_count} / {len(ground_truth)}"
-        )
+        raise BadAPIStatusError(errors, f"{len(ground_truth) - correct_count} / {len(ground_truth)}")
 
 
 def display_api_status_error(rest_error, executable_error, display_success=False):
@@ -88,23 +86,17 @@ def display_api_status_error(rest_error, executable_error, display_success=False
             print("🟢 All API Status Test Passed!")
         return None
 
-    print(
-        f"\n{RED_FONT}{'-' * 18} Executable Categories' Error Bounds Based on API Health Status {'-' * 18}{RESET}\n"
-    )
+    print(f"\n{RED_FONT}{'-' * 18} Executable Categories' Error Bounds Based on API Health Status {'-' * 18}{RESET}\n")
 
     if rest_error:
-        print(
-            f"❗️ Warning: Unable to verify health of executable APIs used in executable test category (REST). Please contact API provider.\n"
-        )
+        print(f"❗️ Warning: Unable to verify health of executable APIs used in executable test category (REST). Please contact API provider.\n")
         print(f"{rest_error.error_rate} APIs affected:\n")
         for data, status in rest_error.errors:
             print(f"  - Test Case: {data['ground_truth']}")
             print(f"    Error Type: {status['error_type']}\n")
 
     if executable_error:
-        print(
-            f"❗️ Warning: Unable to verify health of executable APIs used in executable test categories (Non-REST). Please contact API provider.\n"
-        )
+        print(f"❗️ Warning: Unable to verify health of executable APIs used in executable test categories (Non-REST). Please contact API provider.\n")
         print(f"{executable_error.error_rate} APIs affected:\n")
         for data, status in executable_error.errors:
             print(f"  - Test Case: {data['ground_truth'][0]}")
@@ -122,9 +114,7 @@ def get_executable_expected_output(prompt_file_path):
         ground_truth = item["ground_truth"]
         for i in range(len(ground_truth)):
             exec(
-                "from bfcl.eval_checker.executable_eval.data.executable_python_function import *"
-                + "\nresult="
-                + ground_truth[i],
+                "from bfcl.eval_checker.executable_eval.data.executable_python_function import *" + "\nresult=" + ground_truth[i],
                 exec_dict,
             )
             execution_result.append(exec_dict["result"])
@@ -191,6 +181,7 @@ def calculate_unweighted_accuracy(accuracy_dict_list, display_na_if_category_mis
 
     return result
 
+
 def record_result(leaderboard_table, model_name, test_category, accuracy, total_count):
     if model_name not in leaderboard_table:
         leaderboard_table[model_name] = {}
@@ -204,9 +195,7 @@ def record_cost_latency(leaderboard_table, model_name, model_output_data):
     def process_data(key, data, output_list):
         # All entries are either a list of list (in multi-turn), or a single value (in single-turn)
         if key in data:
-            if isinstance(data[key], list) and all(
-                isinstance(inner_item, list) for inner_item in data[key]
-            ):
+            if isinstance(data[key], list) and all(isinstance(inner_item, list) for inner_item in data[key]):
                 flattened_list = sum(data[key], [])
                 output_list.extend([item for item in flattened_list if item != 0])
             else:
@@ -235,18 +224,11 @@ def get_cost_letency_info(model_name, cost_data, latency_data):
     # TODO: Update the cost and latency calculation since some models cannot be evaluated using v100 and also there are more entries.
     cost, mean_latency, std_latency, percentile_95_latency = "N/A", "N/A", "N/A", "N/A"
 
-    if (
-        model_name in INPUT_PRICE_PER_MILLION_TOKEN
-        and len(cost_data["input_data"]) > 0
-        and len(cost_data["output_data"]) > 0
-    ):
+    if model_name in INPUT_PRICE_PER_MILLION_TOKEN and len(cost_data["input_data"]) > 0 and len(cost_data["output_data"]) > 0:
 
         mean_input_token = statistics.mean(cost_data["input_data"])
         mean_output_token = statistics.mean(cost_data["output_data"])
-        cost = (
-            mean_input_token * INPUT_PRICE_PER_MILLION_TOKEN[model_name]
-            + mean_output_token * OUTPUT_PRICE_PER_MILLION_TOKEN[model_name]
-        ) / 1000
+        cost = (mean_input_token * INPUT_PRICE_PER_MILLION_TOKEN[model_name] + mean_output_token * OUTPUT_PRICE_PER_MILLION_TOKEN[model_name]) / 1000
         cost = round(cost, 2)
 
     # TODO: Have a formal way to calculate the cost and latency for OSS models
@@ -324,9 +306,7 @@ def write_score_csv_file(
                 f.write(",".join(row))
 
 
-def generate_leaderboard_csv(
-    leaderboard_table, output_path, eval_models=None, eval_categories=None
-):
+def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, eval_categories=None):
     print("📈 Aggregating data to generate leaderboard score table...")
     data_non_live = []
     data_live = []
@@ -337,9 +317,7 @@ def generate_leaderboard_csv(
 
         cost_data = value.get("cost", {"input_data": [], "output_data": []})
         latency_data = value.get("latency", {"data": []})
-        cost, latency_mean, latency_std, percentile_95_latency = get_cost_letency_info(
-            model_name_escaped, cost_data, latency_data
-        )
+        cost, latency_mean, latency_std, percentile_95_latency = get_cost_letency_info(model_name_escaped, cost_data, latency_data)
 
         # Non-Live Score
         python_simple_ast_non_live = get_category_score(value, "simple")
@@ -365,9 +343,7 @@ def generate_leaderboard_csv(
         multiple_ast_non_live = python_multiple_ast_non_live
         parallel_ast_non_live = python_parallel_ast_non_live
         parallel_multiple_ast_non_live = python_parallel_multiple_ast_non_live
-        simple_exec_non_live = calculate_unweighted_accuracy(
-            [python_simple_exec_non_live, rest_simple_exec_non_live]
-        )
+        simple_exec_non_live = calculate_unweighted_accuracy([python_simple_exec_non_live, rest_simple_exec_non_live])
         multiple_exec_non_live = python_multiple_exec_non_live
         parallel_exec_non_live = python_parallel_exec_non_live
         parallel_multiple_exec_non_live = python_parallel_multiple_exec_non_live
@@ -472,15 +448,23 @@ def generate_leaderboard_csv(
 
         # Multi-Turn Score
         multi_turn_base = get_category_score(value, "multi_turn_base")
+        multi_turn_base_extended_double = get_category_score(value, "multi_turn_base_extended_double")
+        multi_turn_base_extended_full = get_category_score(value, "multi_turn_base_extended_full")
         multi_turn_miss_func = get_category_score(value, "multi_turn_miss_func")
         multi_turn_miss_param = get_category_score(value, "multi_turn_miss_param")
         multi_turn_long_context = get_category_score(value, "multi_turn_long_context")
+        multi_turn_long_context_extended_double = get_category_score(value, "multi_turn_long_context_extended_double")
+        multi_turn_long_context_extended_full = get_category_score(value, "multi_turn_long_context_extended_full")
         overall_accuracy_multi_turn = calculate_unweighted_accuracy(
             [
                 multi_turn_base,
+                multi_turn_base_extended_double,
+                multi_turn_base_extended_full,
                 multi_turn_miss_func,
                 multi_turn_miss_param,
                 multi_turn_long_context,
+                multi_turn_long_context_extended_double,
+                multi_turn_long_context_extended_full,
             ],
             display_na_if_category_missing=False,
         )
@@ -491,19 +475,19 @@ def generate_leaderboard_csv(
                 MODEL_METADATA_MAPPING[model_name_escaped][0],
                 overall_accuracy_multi_turn["display_accuracy"],
                 multi_turn_base["display_accuracy"],
+                multi_turn_base_extended_double["display_accuracy"],
+                multi_turn_base_extended_full["display_accuracy"],
                 multi_turn_miss_func["display_accuracy"],
                 multi_turn_miss_param["display_accuracy"],
                 multi_turn_long_context["display_accuracy"],
+                multi_turn_long_context_extended_double["display_accuracy"],
+                multi_turn_long_context_extended_full["display_accuracy"],
             ]
         )
 
         # Total Score
-        single_turn_ast = calculate_unweighted_accuracy(
-            [overall_accuracy_live, overall_accuracy_non_live]
-        )
-        total_irrelevance = calculate_unweighted_accuracy(
-            [irrelevance_non_live, irrelevance_live]
-        )
+        single_turn_ast = calculate_unweighted_accuracy([overall_accuracy_live, overall_accuracy_non_live])
+        total_irrelevance = calculate_unweighted_accuracy([irrelevance_non_live, irrelevance_live])
         total_relevance = relevance_live
 
         total_overall_accuracy = calculate_unweighted_accuracy(
@@ -542,9 +526,13 @@ def generate_leaderboard_csv(
                 python_parallel_multiple_ast_live["display_accuracy"],
                 overall_accuracy_multi_turn["display_accuracy"],
                 multi_turn_base["display_accuracy"],
+                multi_turn_base_extended_double["display_accuracy"],
+                multi_turn_base_extended_full["display_accuracy"],
                 multi_turn_miss_func["display_accuracy"],
                 multi_turn_miss_param["display_accuracy"],
                 multi_turn_long_context["display_accuracy"],
+                multi_turn_long_context_extended_double["display_accuracy"],
+                multi_turn_long_context_extended_full["display_accuracy"],
                 total_relevance["display_accuracy"],
                 total_irrelevance["display_accuracy"],
                 MODEL_METADATA_MAPPING[model_name_escaped][2],
@@ -677,10 +665,7 @@ def check_model_category_status(score_path):
 
     # Check for all models in MODEL_METADATA_MAPPING
     for model_name in MODEL_METADATA_MAPPING.keys():
-        category_status[model_name] = {
-            category: {"generated": False, "evaluated": False}
-            for category in leaderboard_categories
-        }
+        category_status[model_name] = {category: {"generated": False, "evaluated": False} for category in leaderboard_categories}
 
         # Check result folder
         result_subdir = os.path.join(result_path, model_name)
@@ -712,23 +697,13 @@ def check_all_category_present(category_status, eval_models=None, eval_categorie
         if eval_models and model_name not in eval_models:
             continue
 
-        not_generated = [
-            cat
-            for cat, status in categories.items()
-            if not status["generated"] and (not eval_categories or cat in eval_categories)
-        ]
-        not_evaluated = [
-            cat
-            for cat, status in categories.items()
-            if not status["evaluated"] and (not eval_categories or cat in eval_categories)
-        ]
+        not_generated = [cat for cat, status in categories.items() if not status["generated"] and (not eval_categories or cat in eval_categories)]
+        not_evaluated = [cat for cat, status in categories.items() if not status["evaluated"] and (not eval_categories or cat in eval_categories)]
 
         if not_generated or not_evaluated:
             found_issues = True
             if first_time:
-                print(
-                    f"We are checking models: {eval_models} and categories: {eval_categories}"
-                )
+                print(f"We are checking models: {eval_models} and categories: {eval_categories}")
                 print(f"\n{RED_FONT}{'=' * 30} Model Category Status {'=' * 30}{RESET}")
                 first_time = False
 
@@ -738,9 +713,7 @@ def check_all_category_present(category_status, eval_models=None, eval_categorie
                 for cat in not_generated:
                     print(f"    - {cat}")
                 commands.append("cd ..")
-                commands.append(
-                    f"python openfunctions_evaluation.py --model {model_name} --test-category {' '.join(not_generated)}"
-                )
+                commands.append(f"python openfunctions_evaluation.py --model {model_name} --test-category {' '.join(not_generated)}")
 
             if not_evaluated:
                 print(f"\n  Unevaluated results for {len(not_evaluated)} categories:")
@@ -750,15 +723,11 @@ def check_all_category_present(category_status, eval_models=None, eval_categorie
             all_categories = set(not_generated + not_evaluated)
             if all_categories:
                 commands.append("cd eval_checker")
-                commands.append(
-                    f"python eval_runner.py --model {model_name} --test-category {' '.join(all_categories)}"
-                )
+                commands.append(f"python eval_runner.py --model {model_name} --test-category {' '.join(all_categories)}")
 
     if found_issues:
         print(f"\n{RED_FONT}{'=' * 40} Recommended Actions {'=' * 40}{RESET}\n")
-        print(
-            "To address these issues, run the following commands from the current directory:"
-        )
+        print("To address these issues, run the following commands from the current directory:")
         print("\n" + " && \\\n".join(commands))
         print(f"\n{RED_FONT}{'=' * 100}{RESET}\n")
     else:
@@ -767,9 +736,7 @@ def check_all_category_present(category_status, eval_models=None, eval_categorie
     return found_issues
 
 
-def update_leaderboard_table_with_local_score_file(
-    leaderboard_table, score_path: Path
-) -> None:
+def update_leaderboard_table_with_local_score_file(leaderboard_table, score_path: Path) -> None:
 
     entries = score_path.iterdir()
 

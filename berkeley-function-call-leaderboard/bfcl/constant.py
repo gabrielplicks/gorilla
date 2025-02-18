@@ -38,9 +38,13 @@ TEST_FILE_MAPPING = {
     "live_relevance": f"{VERSION_PREFIX}_live_relevance.json",
     # Multi-turn Datasets
     "multi_turn_base": f"{VERSION_PREFIX}_multi_turn_base.json",
+    "multi_turn_base_extended_double": f"{VERSION_PREFIX}_multi_turn_base_extended_double.json",
+    "multi_turn_base_extended_full": f"{VERSION_PREFIX}_multi_turn_base_extended_full.json",
     "multi_turn_miss_func": f"{VERSION_PREFIX}_multi_turn_miss_func.json",
     "multi_turn_miss_param": f"{VERSION_PREFIX}_multi_turn_miss_param.json",
     "multi_turn_long_context": f"{VERSION_PREFIX}_multi_turn_long_context.json",
+    "multi_turn_long_context_extended_double": f"{VERSION_PREFIX}_multi_turn_long_context_extended_double.json",
+    "multi_turn_long_context_extended_full": f"{VERSION_PREFIX}_multi_turn_long_context_extended_full.json",
     "multi_turn_composite": f"{VERSION_PREFIX}_multi_turn_composite.json",
 }
 
@@ -65,15 +69,23 @@ TEST_COLLECTION_MAPPING = {
         "live_irrelevance",
         "live_relevance",
         "multi_turn_base",
+        "multi_turn_base_extended_double",
+        "multi_turn_base_extended_full",
         "multi_turn_miss_func",
         "multi_turn_miss_param",
         "multi_turn_long_context",
+        "multi_turn_long_context_extended_double",
+        "multi_turn_long_context_extended_full",
     ],
     "multi_turn": [
         "multi_turn_base",
+        "multi_turn_base_extended_double",
+        "multi_turn_base_extended_full",
         "multi_turn_miss_func",
         "multi_turn_miss_param",
         "multi_turn_long_context",
+        "multi_turn_long_context_extended_double",
+        "multi_turn_long_context_extended_full",
     ],
     "single_turn": [
         "exec_simple",
