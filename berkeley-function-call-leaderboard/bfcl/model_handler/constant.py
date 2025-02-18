@@ -113,6 +113,7 @@ JS_TYPE_CONVERSION = {
 
 UNDERSCORE_TO_DOT = [
     # TODO: Use the model style to determine this, single source of truth
+    "asi1-mini-FC",
     "DeepSeek-V3",
     "o1-2024-12-17-FC",
     "o3-mini-2025-01-31-FC",

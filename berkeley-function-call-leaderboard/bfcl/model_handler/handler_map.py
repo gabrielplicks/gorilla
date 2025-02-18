@@ -1,3 +1,4 @@
+from bfcl.model_handler.api_inference.asi import ASIHandler
 from bfcl.model_handler.api_inference.claude import ClaudeHandler
 from bfcl.model_handler.api_inference.cohere import CohereHandler
 from bfcl.model_handler.api_inference.databricks import DatabricksHandler
@@ -18,6 +19,7 @@ from bfcl.model_handler.api_inference.yi import YiHandler
 from bfcl.model_handler.local_inference.bielik import BielikHandler
 from bfcl.model_handler.local_inference.deepseek import DeepseekHandler
 from bfcl.model_handler.local_inference.deepseek_coder import DeepseekCoderHandler
+from bfcl.model_handler.local_inference.falcon_fc import Falcon3FCHandler
 from bfcl.model_handler.local_inference.gemma import GemmaHandler
 from bfcl.model_handler.local_inference.glaive import GlaiveHandler
 from bfcl.model_handler.local_inference.glm import GLMHandler
@@ -33,12 +35,12 @@ from bfcl.model_handler.local_inference.phi import PhiHandler
 from bfcl.model_handler.local_inference.quick_testing_oss import QuickTestingOSSHandler
 from bfcl.model_handler.local_inference.qwen import QwenHandler
 from bfcl.model_handler.local_inference.salesforce import SalesforceHandler
-from bfcl.model_handler.local_inference.falcon_fc import Falcon3FCHandler
 
 # TODO: Add meta-llama/Llama-3.1-405B-Instruct
 
 # Inference through API calls
 api_inference_handler_map = {
+    "asi1-mini-FC": ASIHandler,
     "gorilla-openfunctions-v2": GorillaHandler,
     "DeepSeek-V3": DeepSeekAPIHandler,
     "o1-2024-12-17-FC": OpenAIHandler,
@@ -172,7 +174,7 @@ local_inference_handler_map = {
     "tiiuae/Falcon3-1B-Instruct-FC": Falcon3FCHandler,
     "uiuc-convai/CALM-8B": LlamaHandler,
     "uiuc-convai/CALM-70B": LlamaHandler,
-    "uiuc-convai/CALM-405B": LlamaHandler
+    "uiuc-convai/CALM-405B": LlamaHandler,
 }
 
 # Deprecated/outdated models, no longer on the leaderboard

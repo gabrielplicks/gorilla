@@ -207,6 +207,7 @@ def parse_test_category_argument(test_category_args):
     test_name_total = set()
     test_filename_total = set()
 
+    test_category_args = test_category_args[0].split(",")
     for test_category in test_category_args:
         if test_category in TEST_COLLECTION_MAPPING:
             for test_name in TEST_COLLECTION_MAPPING[test_category]:

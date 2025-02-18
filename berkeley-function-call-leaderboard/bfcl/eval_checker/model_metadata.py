@@ -1,6 +1,12 @@
 from bfcl.model_handler.handler_map import local_inference_handler_map
 
 MODEL_METADATA_MAPPING = {
+    "asi1-mini-FC": [
+        "asi1-mini (FC)",
+        "",
+        "",
+        "",
+    ],
     "gorilla-openfunctions-v2": [
         "Gorilla-OpenFunctions-v2 (FC)",
         "https://gorilla.cs.berkeley.edu/blogs/7_open_functions_v2.html",
@@ -1052,6 +1058,7 @@ OSS_LATENCY = {}
 NO_COST_MODELS = list(local_inference_handler_map.keys())
 # The following models will also have no cost, even though they are queries through the API.
 NO_COST_MODELS += [
+    "asi1-mini-FC",
     "DeepSeek-V3",
     "Nexusflow-Raven-v2",
     "firefunction-v1-FC",
