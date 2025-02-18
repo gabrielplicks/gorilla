@@ -1,11 +1,13 @@
 import argparse
 import json
-import os
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
 import numpy as np
+from tqdm import tqdm
+
 from bfcl._apply_function_credential_config import apply_function_credential_config
 from bfcl.constant import (
     MULTI_TURN_FUNC_DOC_FILE_MAPPING,
@@ -26,11 +28,13 @@ from bfcl.utils import (
     parse_test_category_argument,
     sort_key,
 )
-from tqdm import tqdm
 
-RETRY_LIMIT = 3
+RETRY_LIMIT = 30
 # 60s for the timer to complete. But often we find that even with 60 there is a conflict. So 65 is a safe no.
-RETRY_DELAY = 65  # Delay in seconds
+RETRY_DELAY = 5  # Delay in seconds
+
+# Initialise logger
+logger = logging.getLogger("response_generation")
 
 
 def get_args():
@@ -207,6 +211,8 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
 
     retry_count = 0
 
+    logger.info(f"Generating result for test case: {test_case['id']}")
+
     while True:
         try:
             result, metadata = handler.inference(deepcopy(test_case), include_input_log, exclude_state_log)
@@ -215,18 +221,26 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
             # TODO: It might be better to handle the exception in the handler itself rather than a universal catch block here, as each handler use different ways to call the endpoint.
             # OpenAI has openai.RateLimitError while Anthropic has anthropic.RateLimitError. It would be more robust in the long run.
             if retry_count < RETRY_LIMIT and ("rate limit reached" in str(e).lower() or (hasattr(e, "status_code") and (e.status_code in {429, 503, 500}))):
-                print(f"Rate limit reached. Sleeping for 65 seconds. Retry {retry_count + 1}/{RETRY_LIMIT}")
+                print(f"❗️ Rate limit reached. Sleeping for {RETRY_DELAY} seconds. Retry {retry_count + 1}/{RETRY_LIMIT}")
+                logger.warning(
+                    f"❗️ Rate limit reached. Sleeping for {RETRY_DELAY} seconds. Test case ID: {test_case['id']}, Error: {str(e)}. Retry {retry_count + 1}/{RETRY_LIMIT}"
+                )
                 time.sleep(RETRY_DELAY)
-                retry_count += 1
+                # NOTE let's skip to increment the retry counter if the error is an ASI 'something went wrong'
+                if "something went wrong" not in str(e).lower():
+                    retry_count += 1
             else:
                 # This is usually the case when the model getting stuck on one particular test case.
                 # For example, timeout error or FC model returning invalid JSON response.
                 # Since temperature is already set to 0.001, retrying the same test case will not help.
                 # So we continue the generation process and record the error message as the model response
                 print("-" * 100)
-                print("❗️❗️ Error occurred during inference. Maximum reties reached for rate limit or other error. Continuing to next test case.")
+                print("❗️❗️ Error occurred during inference. Maximum retries reached for rate limit or other error. Continuing to next test case.")
                 print(f"❗️❗️ Test case ID: {test_case['id']}, Error: {str(e)}")
                 print("-" * 100)
+                logger.error(
+                    f"❗️❗️❗️ Error occurred during inference. Maximum retries reached for rate limit or other error. Continuing to next test case. Test case ID: {test_case['id']}, Error: {str(e)}"
+                )
 
                 return {
                     "id": test_case["id"],
@@ -322,6 +336,15 @@ def main(args):
     else:
         args.result_dir = RESULT_PATH
 
+    # Set logger
+    root_logger = logging.getLogger("response_generation")
+    file_handler = logging.FileHandler(f"{args.result_dir}/results.log", mode="w")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    root_logger.setLevel(logging.INFO)
+
     for model_name in args.model:
         test_cases_total = collect_test_cases(
             args,
@@ -332,6 +355,9 @@ def main(args):
         )
 
         if len(test_cases_total) == 0:
-            print(f"All selected test cases have been previously generated for {model_name}. No new test cases to generate.")
+            print(f"All selected test cases have been previously generated for model {model_name}. No new test cases to generate.")
+            logger.info(f"All selected test cases have been previously generated for model {model_name}. No new test cases to generate.")
         else:
+            print(f"Generating results for model {model_name} with {len(test_cases_total)} test cases.")
+            logger.info(f"Generating results for model {model_name} with {len(test_cases_total)} test cases.")
             generate_results(args, model_name, test_cases_total)
