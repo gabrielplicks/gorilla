@@ -194,7 +194,8 @@ class ASIHandler(BaseHandler):
 
     def call_asi_api(self, messages, tools):
         US_API_KEY = os.getenv("US_API_KEY")
-        url = "https://api.us.inc/us/v1/chat/completions"
+        base_url = "https://api.us.inc/us/v1/benchmark"
+        url = base_url + "/chat/completions"
         headers = {"Content-Type": "application/json", "x-api-key": US_API_KEY}
         payload = json.dumps(
             {
@@ -216,7 +217,10 @@ class ASIHandler(BaseHandler):
             completion_dict = json.loads(response.text)
         except json.JSONDecodeError as exc:
             print("Failed to decode JSON response from ASI API.")
-            print("Response text:\n", response.text)
+            if "<!DOCTYPE html>":
+                print("The response is an HTML error page.")
+            else:
+                print("Response text:\n", response.text)
             raise ASIException("Failed to decode JSON response from ASI API.", 500) from exc
 
         # Some checks for special messages or errors
