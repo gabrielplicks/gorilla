@@ -217,7 +217,7 @@ class ASIHandler(BaseHandler):
             completion_dict = json.loads(response.text)
         except json.JSONDecodeError as exc:
             print("Failed to decode JSON response from ASI API.")
-            if "<!DOCTYPE html>":
+            if "<!DOCTYPE html>" in response.text:
                 print("The response is an HTML error page.")
             else:
                 print("Response text:\n", response.text)
