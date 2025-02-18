@@ -5,6 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
+import numpy as np
 from bfcl._apply_function_credential_config import apply_function_credential_config
 from bfcl.constant import (
     MULTI_TURN_FUNC_DOC_FILE_MAPPING,
@@ -55,7 +56,7 @@ def get_args():
         "--skip-server-setup",
         action="store_true",
         default=False,
-        help="Skip vLLM/SGLang server setup and use existing endpoint specified by the VLLM_ENDPOINT and VLLM_PORT environment variables."
+        help="Skip vLLM/SGLang server setup and use existing endpoint specified by the VLLM_ENDPOINT and VLLM_PORT environment variables.",
     )
     args = parser.parse_args()
     return args
@@ -77,13 +78,7 @@ def get_involved_test_entries(test_category_args, run_ids):
             if len(test_ids) == 0:
                 continue
             test_file_path = TEST_FILE_MAPPING[category]
-            all_test_entries_involved.extend(
-                [
-                    entry
-                    for entry in load_file(PROMPT_PATH / test_file_path)
-                    if entry["id"] in test_ids
-                ]
-            )
+            all_test_entries_involved.extend([entry for entry in load_file(PROMPT_PATH / test_file_path) if entry["id"] in test_ids])
             # Skip executable test category if api key is not provided in the .env file
             if is_executable(category) and not api_key_supplied:
                 skipped_categories.append(category)
@@ -94,9 +89,7 @@ def get_involved_test_entries(test_category_args, run_ids):
     else:
         all_test_file_paths, all_test_categories = parse_test_category_argument(test_category_args)
         # Make a copy here since we are removing list elemenets inside the for loop
-        for test_category, file_to_open in zip(
-            all_test_categories[:], all_test_file_paths[:]
-        ):
+        for test_category, file_to_open in zip(all_test_categories[:], all_test_file_paths[:]):
             if is_executable(test_category) and not api_key_supplied:
                 all_test_categories.remove(test_category)
                 all_test_file_paths.remove(file_to_open)
@@ -112,9 +105,7 @@ def get_involved_test_entries(test_category_args, run_ids):
     )
 
 
-def collect_test_cases(
-    args, model_name, all_test_categories, all_test_file_paths, all_test_entries_involved
-):
+def collect_test_cases(args, model_name, all_test_categories, all_test_file_paths, all_test_entries_involved):
     model_name_dir = model_name.replace("/", "_")
     model_result_dir = args.result_dir / model_name_dir
 
@@ -135,11 +126,7 @@ def collect_test_cases(
 
         existing_ids = [entry["id"] for entry in existing_result]
 
-    test_cases_to_generate = [
-        test_case
-        for test_case in all_test_entries_involved
-        if test_case["id"] not in existing_ids
-    ]
+    test_cases_to_generate = [test_case for test_case in all_test_entries_involved if test_case["id"] not in existing_ids]
     test_cases_to_generate = process_multi_turn_test_case(test_cases_to_generate)
 
     return sorted(test_cases_to_generate, key=sort_key)
@@ -154,12 +141,49 @@ def process_multi_turn_test_case(test_cases):
             continue
         involved_classes = entry["involved_classes"]
         entry["function"] = []
+        func_docs = {}
         for func_collection in involved_classes:
             # func_doc is a list of dict
-            func_doc = load_file(
-                MULTI_TURN_FUNC_DOC_PATH / MULTI_TURN_FUNC_DOC_FILE_MAPPING[func_collection]
-            )
+            func_doc = load_file(MULTI_TURN_FUNC_DOC_PATH / MULTI_TURN_FUNC_DOC_FILE_MAPPING[func_collection])
+            func_docs[func_collection] = func_doc
             entry["function"].extend(func_doc)
+
+        # Verify if the number of functions is not > 128
+        # If it is, take out the last functions while
+        # making sure they are not functions of the
+        # "involved_classes_original" list
+        if len(entry["function"]) > 128:
+            while len(entry["function"]) > 128:
+                # Take the last entry
+                last_entry = entry["function"].pop()
+                # Iterate the function collection names
+                for func_collection_name, func_collection_docs in func_docs.items():
+
+                    # If the function collection is part of the original involved classes, skip
+                    if func_collection_name in entry["involved_classes_original"]:
+                        # If the last entry is part of the original involved classes, add it back
+                        # (to the beginning so we don't pop it again)
+                        if last_entry in func_collection_docs:
+                            entry["function"].insert(0, last_entry)
+                            # print("Didn't remove the last function doc because it is part of the original involved classes.")
+                            # print(f"Original involved classes: {entry['involved_classes_original']}")
+                            # print(f"For function collection: {func_collection_name}")
+                            # print(f"Function name: {last_entry['name']}")
+                            # print("-" * 100)
+                        # Skip (continue) to the next function collection
+                        continue
+
+                    # If the last entry is not part of the original involved classes, remove it
+                    if last_entry in func_collection_docs:
+                        # print("Removed the last function doc because it is not part of the original involved classes.")
+                        # print(f"Original involved classes: {entry['involved_classes_original']}")
+                        # print(f"For function collection: {func_collection_name}")
+                        # print(f"Function name: {last_entry['name']}")
+                        # print("-" * 100)
+                        break
+
+        # Shuffle the functions
+        entry["function"] = np.random.permutation(entry["function"]).tolist()
 
         # Handle Miss Func category; we need to remove the holdout function doc
         if "missed_function" in entry:
@@ -185,20 +209,13 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
 
     while True:
         try:
-            result, metadata = handler.inference(
-                deepcopy(test_case), include_input_log, exclude_state_log
-            )
+            result, metadata = handler.inference(deepcopy(test_case), include_input_log, exclude_state_log)
             break  # Success, exit the loop
         except Exception as e:
             # TODO: It might be better to handle the exception in the handler itself rather than a universal catch block here, as each handler use different ways to call the endpoint.
             # OpenAI has openai.RateLimitError while Anthropic has anthropic.RateLimitError. It would be more robust in the long run.
-            if retry_count < RETRY_LIMIT and (
-                "rate limit reached" in str(e).lower()
-                or (hasattr(e, "status_code") and (e.status_code in {429, 503, 500}))
-            ):
-                print(
-                    f"Rate limit reached. Sleeping for 65 seconds. Retry {retry_count + 1}/{RETRY_LIMIT}"
-                )
+            if retry_count < RETRY_LIMIT and ("rate limit reached" in str(e).lower() or (hasattr(e, "status_code") and (e.status_code in {429, 503, 500}))):
+                print(f"Rate limit reached. Sleeping for 65 seconds. Retry {retry_count + 1}/{RETRY_LIMIT}")
                 time.sleep(RETRY_DELAY)
                 retry_count += 1
             else:
@@ -207,9 +224,7 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
                 # Since temperature is already set to 0.001, retrying the same test case will not help.
                 # So we continue the generation process and record the error message as the model response
                 print("-" * 100)
-                print(
-                    "❗️❗️ Error occurred during inference. Maximum reties reached for rate limit or other error. Continuing to next test case."
-                )
+                print("❗️❗️ Error occurred during inference. Maximum reties reached for rate limit or other error. Continuing to next test case.")
                 print(f"❗️❗️ Test case ID: {test_case['id']}, Error: {str(e)}")
                 print("-" * 100)
 
@@ -249,9 +264,7 @@ def generate_results(args, model_name, test_cases_total):
     else:
         futures = []
         with ThreadPoolExecutor(max_workers=args.num_threads) as executor:
-            with tqdm(
-                total=len(test_cases_total), desc=f"Generating results for {model_name}"
-            ) as pbar:
+            with tqdm(total=len(test_cases_total), desc=f"Generating results for {model_name}") as pbar:
 
                 for test_case in test_cases_total:
                     future = executor.submit(
@@ -319,8 +332,6 @@ def main(args):
         )
 
         if len(test_cases_total) == 0:
-            print(
-                f"All selected test cases have been previously generated for {model_name}. No new test cases to generate."
-            )
+            print(f"All selected test cases have been previously generated for {model_name}. No new test cases to generate.")
         else:
             generate_results(args, model_name, test_cases_total)
