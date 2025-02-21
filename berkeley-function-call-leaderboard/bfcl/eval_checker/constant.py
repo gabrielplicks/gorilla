@@ -57,11 +57,13 @@ COLUMNS_MULTI_TURN = [
     "Base",
     "Base Extended (Double)",
     "Base Extended (Full)",
+    "Base Extended (900 Tools)",
     "Miss Func",
     "Miss Param",
     "Long Context",
     "Long Context Extended (Double)",
     "Long Context Extended (Full)",
+    "Long Context Extended (900 Tools)",
 ]
 
 
@@ -93,11 +95,13 @@ COLUMNS_OVERALL = [
     "Multi Turn Base",
     "Multi Turn Base Extended (Double)",
     "Multi Turn Base Extended (Full)",
+    "Multi Turn Base Extended (900 Tools)",
     "Multi Turn Miss Func",
     "Multi Turn Miss Param",
     "Multi Turn Long Context",
     "Multi Turn Long Context Extended (Double)",
     "Multi Turn Long Context Extended (Full)",
+    "Multi Turn Long Context Extended (900 Tools)",
     "Relevance Detection",
     "Irrelevance Detection",
     "Organization",

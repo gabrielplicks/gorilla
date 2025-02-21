@@ -450,21 +450,25 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
         multi_turn_base = get_category_score(value, "multi_turn_base")
         multi_turn_base_extended_double = get_category_score(value, "multi_turn_base_extended_double")
         multi_turn_base_extended_full = get_category_score(value, "multi_turn_base_extended_full")
+        multi_turn_base_extended_900tools = get_category_score(value, "multi_turn_base_extended_900tools")        
         multi_turn_miss_func = get_category_score(value, "multi_turn_miss_func")
         multi_turn_miss_param = get_category_score(value, "multi_turn_miss_param")
         multi_turn_long_context = get_category_score(value, "multi_turn_long_context")
         multi_turn_long_context_extended_double = get_category_score(value, "multi_turn_long_context_extended_double")
         multi_turn_long_context_extended_full = get_category_score(value, "multi_turn_long_context_extended_full")
+        multi_turn_long_context_extended_900tools = get_category_score(value, "multi_turn_long_context_extended_900tools")
         overall_accuracy_multi_turn = calculate_unweighted_accuracy(
             [
                 multi_turn_base,
                 multi_turn_base_extended_double,
                 multi_turn_base_extended_full,
+                multi_turn_base_extended_900tools,
                 multi_turn_miss_func,
                 multi_turn_miss_param,
                 multi_turn_long_context,
                 multi_turn_long_context_extended_double,
                 multi_turn_long_context_extended_full,
+                multi_turn_long_context_extended_900tools,
             ],
             display_na_if_category_missing=False,
         )
@@ -477,11 +481,13 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multi_turn_base["display_accuracy"],
                 multi_turn_base_extended_double["display_accuracy"],
                 multi_turn_base_extended_full["display_accuracy"],
+                multi_turn_base_extended_900tools["display_accuracy"],
                 multi_turn_miss_func["display_accuracy"],
                 multi_turn_miss_param["display_accuracy"],
                 multi_turn_long_context["display_accuracy"],
                 multi_turn_long_context_extended_double["display_accuracy"],
                 multi_turn_long_context_extended_full["display_accuracy"],
+                multi_turn_long_context_extended_900tools["display_accuracy"],
             ]
         )
 
@@ -528,11 +534,13 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multi_turn_base["display_accuracy"],
                 multi_turn_base_extended_double["display_accuracy"],
                 multi_turn_base_extended_full["display_accuracy"],
+                multi_turn_base_extended_900tools["display_accuracy"],
                 multi_turn_miss_func["display_accuracy"],
                 multi_turn_miss_param["display_accuracy"],
                 multi_turn_long_context["display_accuracy"],
                 multi_turn_long_context_extended_double["display_accuracy"],
                 multi_turn_long_context_extended_full["display_accuracy"],
+                multi_turn_long_context_extended_900tools["display_accuracy"],
                 total_relevance["display_accuracy"],
                 total_irrelevance["display_accuracy"],
                 MODEL_METADATA_MAPPING[model_name_escaped][2],

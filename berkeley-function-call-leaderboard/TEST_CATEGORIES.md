@@ -43,11 +43,13 @@ If you prefer more granular control, you can specify individual categories:
 - `multi_turn_base`: Base entries for multi-turn function calls.
 - `multi_turn_base_extended_double`: Extended `multi_turn_base` with double-ish the number of available tools per entry.
 - `multi_turn_base_extended_full`: Extended `multi_turn_base` with all domain tools available per entry.
+- `multi_turn_base_extended_900tools`: Extended `multi_turn_base` with 900 tools available per entry.
 - `multi_turn_miss_func`: Multi-turn function calls with missing function.
 - `multi_turn_miss_param`: Multi-turn function calls with missing parameter.
 - `multi_turn_long_context`: Multi-turn function calls with long context.
 - `multi_turn_long_context_extended_double`: Extended `multi_turn_long_context` with double-ish the number of available tools per entry.
 - `multi_turn_long_context_extended_full`: Extended `multi_turn_long_context` with all domain tools available per entry.
+- `multi_turn_long_context_extended_900tools`: Extended `multi_turn_long_context` with 900 tools available per entry.
 
 ### Important Notes on REST API Testing
 
