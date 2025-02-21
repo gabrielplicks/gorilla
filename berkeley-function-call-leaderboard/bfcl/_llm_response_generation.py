@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
+from copy import copy, deepcopy
 
 import numpy as np
 from tqdm import tqdm
@@ -31,7 +31,7 @@ from bfcl.utils import (
 
 RETRY_LIMIT = 30
 # 60s for the timer to complete. But often we find that even with 60 there is a conflict. So 65 is a safe no.
-RETRY_DELAY = 5  # Delay in seconds
+RETRY_DELAY = 65  # Delay in seconds
 
 # Initialise logger
 logger = logging.getLogger("response_generation")
@@ -140,6 +140,10 @@ def process_multi_turn_test_case(test_cases):
     """
     Multi-turn test cases don't have the function doc in the prompt. We need to add them here.
     """
+    # Load the global functions dataset in case functions need to be added
+    global_functions_jsonl_path = PROMPT_PATH / "global_functions.jsonl"
+    global_functions = load_file(global_functions_jsonl_path)
+
     for entry in test_cases:
         if not is_multi_turn(entry["id"]):
             continue
@@ -152,39 +156,101 @@ def process_multi_turn_test_case(test_cases):
             func_docs[func_collection] = func_doc
             entry["function"].extend(func_doc)
 
-        # Verify if the number of functions is not > 128
-        # If it is, take out the last functions while
-        # making sure they are not functions of the
-        # "involved_classes_original" list
-        if len(entry["function"]) > 128:
-            while len(entry["function"]) > 128:
-                # Take the last entry
-                last_entry = entry["function"].pop()
-                # Iterate the function collection names
-                for func_collection_name, func_collection_docs in func_docs.items():
+        # Check if the entry is of the "_128tools" category
+        if "_128tools" in entry["id"]:
+            # Verify if the number of functions is not > 128
+            # If it is, take out the last functions while
+            # making sure they are not functions of the
+            # "involved_classes_original" list
+            if len(entry["function"]) > 128:
+                while len(entry["function"]) > 128:
+                    # Take the last entry
+                    last_entry = entry["function"].pop()
+                    # Iterate the function collection names
+                    for func_collection_name, func_collection_docs in func_docs.items():
 
-                    # If the function collection is part of the original involved classes, skip
-                    if func_collection_name in entry["involved_classes_original"]:
-                        # If the last entry is part of the original involved classes, add it back
-                        # (to the beginning so we don't pop it again)
+                        # If the function collection is part of the original involved classes, skip
+                        if func_collection_name in entry["involved_classes_original"]:
+                            # If the last entry is part of the original involved classes, add it back
+                            # (to the beginning so we don't pop it again)
+                            if last_entry in func_collection_docs:
+                                entry["function"].insert(0, last_entry)
+                            # Skip (continue) to the next function collection
+                            continue
+
+                        # If the last entry is not part of the original involved classes, remove it
                         if last_entry in func_collection_docs:
-                            entry["function"].insert(0, last_entry)
-                            # print("Didn't remove the last function doc because it is part of the original involved classes.")
-                            # print(f"Original involved classes: {entry['involved_classes_original']}")
-                            # print(f"For function collection: {func_collection_name}")
-                            # print(f"Function name: {last_entry['name']}")
-                            # print("-" * 100)
-                        # Skip (continue) to the next function collection
-                        continue
+                            break
 
-                    # If the last entry is not part of the original involved classes, remove it
-                    if last_entry in func_collection_docs:
-                        # print("Removed the last function doc because it is not part of the original involved classes.")
-                        # print(f"Original involved classes: {entry['involved_classes_original']}")
-                        # print(f"For function collection: {func_collection_name}")
-                        # print(f"Function name: {last_entry['name']}")
-                        # print("-" * 100)
-                        break
+        # Check if the entry is of the "_900tools" category
+        if "_900tools" in entry["id"]:
+            target_num_functions = 900
+            if len(entry["function"]) >= target_num_functions:
+                entry["function"] = entry["function"][:target_num_functions]
+            else:
+                print(f"Test case ID: {entry['id']}, Number of functions was {len(entry['function'])}", end=" ")
+                remaining_functions = target_num_functions - len(entry["function"])
+                # Check if the entry is holding duplicate functions when replacing "." with "_"
+                # If it is, remove the duplicates
+                entry_function_names = [copy(func["name"]).replace(".", "_") for func in entry["function"]]
+                if len(entry_function_names) != len(set(entry_function_names)):
+                    print("INITIAL - Entry function names are not unique.")
+                    # Print equal names
+                    for name in set([name for name in entry_function_names if entry_function_names.count(name) > 1]):
+                        print(f"Equal function names: {name}")
+                    # Show original function names
+                    for func in entry["function"]:
+                        if copy(func["name"]).replace(".", "_") in set([name for name in entry_function_names if entry_function_names.count(name) > 1]):
+                            print(f"Original function name: {func['name']}")
+                    # Remove duplicates
+                    entry["function"] = [func for func in entry["function"] if entry_function_names.count(copy(func["name"]).replace(".", "_")) == 1]
+                    print(f"Removed duplicates. Now is {len(entry['function'])} functions.")
+
+                while remaining_functions:
+                    # Sample the functions from the global functions dataset
+                    sampled_functions = np.random.choice(global_functions, remaining_functions, replace=False).tolist()
+                    # Check if there aren't any duplicate names in the sample functions when replacing "." with "_"
+                    sampled_function_names = [copy(func["name"]).replace(".", "_") for func in sampled_functions]
+                    if len(sampled_function_names) != len(set(sampled_function_names)):
+                        # Remove duplicates
+                        sampled_functions = [func for func in sampled_functions if sampled_function_names.count(copy(func["name"]).replace(".", "_")) == 1]
+                        # print(f"Removed duplicates. Now is {len(sampled_functions)} functions.")
+                    # Check that there are no duplicate names between the sampled functions and the entry functions
+                    if len(set(sampled_function_names).intersection(set(entry_function_names))) > 0:
+                        # Remove duplicates
+                        sampled_functions = [func for func in sampled_functions if copy(func["name"]).replace(".", "_") not in set(entry_function_names)]
+                        # print(f"Removed duplicates. Now is {len(sampled_functions)} functions.")
+                    # Add the sampled functions to the entry functions
+                    entry["function"].extend(sampled_functions)
+                    remaining_functions = target_num_functions - len(entry["function"])
+                    # print(f"Added {len(sampled_functions)} functions. {remaining_functions} remaining.", end=" ")
+
+                    # NOTE just a double check:
+                    # Check if there aren't any duplicate names in the entry functions when replacing "." with "_"
+                    entry_function_names = [copy(func["name"]).replace(".", "_") for func in entry["function"]]
+                    if len(entry_function_names) != len(set(entry_function_names)):
+                        print("DOUBLE CHECK - Entry function names are not unique.")
+                        # Print equal names
+                        for name in set([name for name in entry_function_names if entry_function_names.count(name) > 1]):
+                            print(f"Equal function names: {name}")
+                        # Show original function names
+                        for func in entry["function"]:
+                            if copy(func["name"]).replace(".", "_") in set([name for name in entry_function_names if entry_function_names.count(name) > 1]):
+                                print(f"Original function name: {func['name']}")
+
+                print(f"and now is {len(entry['function'])} functions.")
+
+                # Check that all tool names are unique if replacing "." with "_"
+                tool_names = [tool["name"].replace(".", "_") for tool in entry["function"]]
+                if len(tool_names) != len(set(tool_names)):
+                    print("Tool names are not unique.")
+                # Print equal names
+                for name in set([name for name in tool_names if tool_names.count(name) > 1]):
+                    print(f"Equal tool names: {name}")
+                # Show original tool names
+                for tool in entry["function"]:
+                    if tool["name"].replace(".", "_") in set([name for name in tool_names if tool_names.count(name) > 1]):
+                        print(f"Original tool name: {tool['name']}")
 
         # Shuffle the functions
         entry["function"] = np.random.permutation(entry["function"]).tolist()
@@ -216,6 +282,8 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
     while True:
         try:
             result, metadata = handler.inference(deepcopy(test_case), include_input_log, exclude_state_log)
+            print(f"✅ Test case ID: {test_case['id']} - Success")
+            logger.info(f"✅ Test case ID: {test_case['id']} - Success")
             break  # Success, exit the loop
         except Exception as e:
             # TODO: It might be better to handle the exception in the handler itself rather than a universal catch block here, as each handler use different ways to call the endpoint.
@@ -237,6 +305,32 @@ def multi_threaded_inference(handler, test_case, include_input_log, exclude_stat
                 print("-" * 100)
                 print("❗️❗️ Error occurred during inference. Maximum retries reached for rate limit or other error. Continuing to next test case.")
                 print(f"❗️❗️ Test case ID: {test_case['id']}, Error: {str(e)}")
+                # Iterate through the tools in the test case and check if they respect the regex pattern
+                import re
+
+                for tool in test_case["function"]:
+                    if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", tool["name"]):
+                        print(f"Invalid tool name: {tool['name']}")
+                    # Check properties
+                    for prop in tool["parameters"]["properties"]:
+                        if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", prop):
+                            print(f"Invalid property name: {prop}")
+                    # Check required field
+                    for req in tool["parameters"]["required"]:
+                        if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", req):
+                            print(f"Invalid required field name: {req}")
+                # Check that all tool names are unique if replacing "." with "_"
+                tool_names = [tool["name"].replace(".", "_") for tool in test_case["function"]]
+                if len(tool_names) != len(set(tool_names)):
+                    print("Tool names are not unique.")
+                # Print equal names
+                for name in set([name for name in tool_names if tool_names.count(name) > 1]):
+                    print(f"Equal tool names: {name}")
+                # Show original tool names
+                for tool in test_case["function"]:
+                    if tool["name"].replace(".", "_") in set([name for name in tool_names if tool_names.count(name) > 1]):
+                        print(f"Original tool name: {tool['name']}")
+
                 print("-" * 100)
                 logger.error(
                     f"❗️❗️❗️ Error occurred during inference. Maximum retries reached for rate limit or other error. Continuing to next test case. Test case ID: {test_case['id']}, Error: {str(e)}"
