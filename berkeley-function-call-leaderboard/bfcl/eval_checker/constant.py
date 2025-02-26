@@ -3,12 +3,8 @@ from pathlib import Path
 REAL_TIME_MATCH_ALLOWED_DIFFERENCE = 0.2
 
 # These two files are for the API status sanity check
-REST_API_GROUND_TRUTH_FILE_PATH = (
-    "./executable_eval/data/api_status_check_ground_truth_REST.json"
-)
-EXECTUABLE_API_GROUND_TRUTH_FILE_PATH = (
-    "./executable_eval/data/api_status_check_ground_truth_executable.json"
-)
+REST_API_GROUND_TRUTH_FILE_PATH = "./executable_eval/data/api_status_check_ground_truth_REST.json"
+EXECTUABLE_API_GROUND_TRUTH_FILE_PATH = "./executable_eval/data/api_status_check_ground_truth_executable.json"
 
 # This is the ground truth file for the `rest` test category
 REST_EVAL_GROUND_TRUTH_PATH = "./executable_eval/data/rest-eval-response_v5.jsonl"
@@ -33,6 +29,7 @@ COLUMNS_NON_LIVE = [
     "Parallel Exec",
     "Parallel Multiple Exec",
     "Irrelevance Detection",
+    "NESTful",
 ]
 
 
@@ -104,6 +101,7 @@ COLUMNS_OVERALL = [
     "Multi Turn Long Context Extended (900 Tools)",
     "Relevance Detection",
     "Irrelevance Detection",
+    "NESTful",
     "Organization",
     "License",
 ]

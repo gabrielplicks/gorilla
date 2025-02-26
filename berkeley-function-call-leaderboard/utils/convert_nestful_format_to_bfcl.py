@@ -13,7 +13,7 @@ TYPE_MAPPING = {
 
 # Paths
 nestful_dataset_path = "data_v2/nestful_data.jsonl"
-nestful_to_bfcl_dataset_path = "nestful_to_bfcl_data.json"
+nestful_to_bfcl_dataset_path = "BFCL_v3_exec_parallel_multiple_nestful.json"
 
 
 def type_list_to_one_type(parameter_type):
@@ -83,7 +83,7 @@ for i, entry in enumerate(nestful_data):
         print("BEFORE:")
         print(json.dumps(entry))
     nestful_to_bfcl_entry = {
-        "id": "nestful_" + str(i),
+        "id": "exec_parallel_multiple_nestful_" + str(i),
         "question": [[{"role": "user", "content": entry["input"]}]],
         "ground_truth": entry["output"],
         "gold_answer": entry["gold_answer"],

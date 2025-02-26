@@ -3,6 +3,7 @@
     "exec_parallel": [],
     "exec_multiple": [],
     "exec_parallel_multiple": [],
+    "exec_parallel_multiple_nestful": [],
     "simple": [],
     "irrelevance": [],
     "parallel": [],

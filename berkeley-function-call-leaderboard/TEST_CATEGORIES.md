@@ -50,6 +50,7 @@ If you prefer more granular control, you can specify individual categories:
 - `multi_turn_long_context_extended_double`: Extended `multi_turn_long_context` with double-ish the number of available tools per entry.
 - `multi_turn_long_context_extended_full`: Extended `multi_turn_long_context` with all domain tools available per entry.
 - `multi_turn_long_context_extended_900tools`: Extended `multi_turn_long_context` with 900 tools available per entry.
+- `exec_parallel_multiple_nestful`: Runs the NESTful dataset, a category that tests multiple nested function calls.
 
 ### Important Notes on REST API Testing
 
