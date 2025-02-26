@@ -16,9 +16,7 @@ def extract_test_category(input_string: Union[str, Path]) -> str:
     if match:
         return match.group(1)  # the first captured group (\w+)
     else:
-        raise ValueError(
-            f"Could not extract the test category from the input string: {input_string}"
-        )
+        raise ValueError(f"Could not extract the test category from the input string: {input_string}")
 
 
 def extract_test_category_from_id(test_entry_id: str) -> str:
@@ -46,6 +44,10 @@ def is_executable(test_category):
 
 def is_rest(test_category):
     return "rest" in test_category
+
+
+def is_nestful(test_category):
+    return "nestful" in test_category
 
 
 def is_relevance_or_irrelevance(test_category):

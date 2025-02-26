@@ -1,6 +1,8 @@
+import json
 import os
 import statistics
-from datetime import datetime
+from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -106,19 +108,110 @@ def display_api_status_error(rest_error, executable_error, display_success=False
 
 
 def get_executable_expected_output(prompt_file_path):
+    print("🔍 Getting Executable Expected Output...")
     # Before we run the evaluation, we need to add the "execution_result" field to the prompt file, using the ground truth data.
     prompt_content = load_file(prompt_file_path)
-    exec_dict = {}
-    for item in tqdm(prompt_content, desc="Getting Executable Expected Output"):
-        execution_result = []
-        ground_truth = item["ground_truth"]
-        for i in range(len(ground_truth)):
-            exec(
-                "from bfcl.eval_checker.executable_eval.data.executable_python_function import *" + "\nresult=" + ground_truth[i],
-                exec_dict,
-            )
-            execution_result.append(exec_dict["result"])
-        item["execution_result"] = execution_result
+
+    # If NESTful is in the prompt file, run the NESTful functions, else normal BFCL
+    if "exec_parallel_multiple_nestful" in prompt_file_path.stem:
+        # Load function map
+        print("Loading function map...")
+        with open("executable_eval/nestful_functions/func_file_map.json", "r") as f:
+            function2file_map = json.load(f)
+        # Load all functions
+        function_imports = []
+        import_str_template = "from bfcl.eval_checker.executable_eval.nestful_functions.basic_functions import *"
+        import_str_template += "\nfrom bfcl.eval_checker.executable_eval.nestful_functions.{filename} import {function}"
+        for function, filename in function2file_map.items():
+            filename = filename.replace(".py", "")
+            function_imports.append(import_str_template.format(filename=filename, function=function))
+        function_imports_str = "\n".join(function_imports)
+        exec_dict = {}
+        for item in tqdm(prompt_content, desc="Getting Executable Expected Output"):
+            execution_result = []
+            ground_truth = item["ground_truth"]
+            result_by_label = defaultdict(list)
+            for i in range(len(ground_truth)):
+                arguments = ground_truth[i]["arguments"]
+                argument_values = []
+                for argument_value in arguments.values():
+                    if ".result$" in str(argument_value):
+                        label = argument_value.split(".result$")[0]
+                        argument_value = result_by_label[label][0]
+                    elif "$var" in str(argument_value) and "output" in str(argument_value):
+                        label = argument_value.split(".output_")[0]
+                        result_index = int(argument_value.split(".output_")[1].replace("$", ""))
+                        argument_value = result_by_label[label][result_index]
+                    elif "$var" in str(argument_value) and "gcd" in str(argument_value):
+                        label = argument_value.split(".gcd")[0]
+                        argument_value = result_by_label[label][0]
+                    argument_values.append(argument_value)
+                ground_truth_function_name = ground_truth[i]["name"]
+                parsed_arguments = []
+                for arg_val in argument_values:
+                    if isinstance(arg_val, str) or isinstance(arg_val, datetime):
+                        parsed_arguments.append(repr(arg_val))
+                    else:
+                        parsed_arguments.append(str(arg_val))
+                arguments_str = ", ".join(parsed_arguments)
+                ground_truth_function_str = f"{ground_truth_function_name}({arguments_str})"
+                exec(
+                    function_imports_str + "\nresult=" + ground_truth_function_str,
+                    exec_dict,
+                )
+                result_by_label[ground_truth[i]["label"]].append(exec_dict["result"])
+                execution_result.append(exec_dict["result"])
+            item["execution_result"] = execution_result
+            # Check against gold answer
+            # NOTE this is a bunch of ad-hoc tests
+            if execution_result[-1] != item["gold_answer"]:
+                # Check if the two results are numbers
+                # If yes, check if the results are close
+                if isinstance(execution_result[-1], (int, float)) and isinstance(item["gold_answer"], (int, float)):
+                    if abs(execution_result[-1] - item["gold_answer"]) <= 0.05:
+                        continue
+                    else:
+                        print("Error size:", abs(execution_result[-1] - item["gold_answer"]))
+                # Check if one is a list instance and the other is a tuple instance, and vice versa
+                # If yes, convert the list to a tuple and check if the two tuples are equal
+                elif (isinstance(execution_result[-1], list) or isinstance(execution_result[-1], tuple)) and (
+                    isinstance(item["gold_answer"], list) or isinstance(item["gold_answer"], tuple)
+                ):
+                    if tuple(execution_result[-1]) == tuple(item["gold_answer"]):
+                        continue
+                # Check if it's the gold answer that has random username in it
+                # of format "User {username} logged in with IP {ip} at {timestamp}"
+                # so let's mask it and check if the execution result is of the same format
+                # If yes, check if the execution result is of the same format
+                elif "User " in item["gold_answer"] and " logged in with IP " in item["gold_answer"] and " at " in item["gold_answer"]:
+                    # Get the username from the gold answer
+                    gold_username = item["gold_answer"].split("User ")[1].split(" logged in with IP ")[0]
+                    # Remove the username
+                    gold_answer = item["gold_answer"].replace(gold_username, "USER")
+                    # Remove the username from the execution answer too
+                    execution_answer = execution_result[-1].replace(execution_result[-2], "USER")
+                    if gold_answer == execution_answer:
+                        continue
+                print("Error in execution")
+                print("Ground Truth:")
+                print(ground_truth)
+                print("Execution Result:")
+                print(execution_result)
+                print("Gold Answer:")
+                print(item["gold_answer"])
+                print()
+    else:
+        exec_dict = {}
+        for item in tqdm(prompt_content, desc="Getting Executable Expected Output"):
+            execution_result = []
+            ground_truth = item["ground_truth"]
+            for i in range(len(ground_truth)):
+                exec(
+                    "from bfcl.eval_checker.executable_eval.data.executable_python_function import *" + "\nresult=" + ground_truth[i],
+                    exec_dict,
+                )
+                execution_result.append(exec_dict["result"])
+            item["execution_result"] = execution_result
 
     write_list_of_dicts_to_file(prompt_file_path, prompt_content)
 
@@ -328,6 +421,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
         python_multiple_exec_non_live = get_category_score(value, "exec_multiple")
         python_parallel_exec_non_live = get_category_score(value, "exec_parallel")
         python_parallel_multiple_exec_non_live = get_category_score(value, "exec_parallel_multiple")
+        python_nestful_multiple_exec_non_live = get_category_score(value, "exec_parallel_multiple_nestful")
         java_simple_ast_non_live = get_category_score(value, "java")
         javascript_simple_ast_non_live = get_category_score(value, "javascript")
         rest_simple_exec_non_live = get_category_score(value, "rest")
@@ -347,6 +441,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
         multiple_exec_non_live = python_multiple_exec_non_live
         parallel_exec_non_live = python_parallel_exec_non_live
         parallel_multiple_exec_non_live = python_parallel_multiple_exec_non_live
+        nestful_multiple_exec_non_live = python_nestful_multiple_exec_non_live
 
         summary_ast_non_live = calculate_unweighted_accuracy(
             [
@@ -362,6 +457,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multiple_exec_non_live,
                 parallel_exec_non_live,
                 parallel_multiple_exec_non_live,
+                nestful_multiple_exec_non_live,
             ]
         )
         overall_accuracy_non_live = calculate_unweighted_accuracy(
@@ -374,6 +470,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multiple_exec_non_live,
                 parallel_exec_non_live,
                 parallel_multiple_exec_non_live,
+                nestful_multiple_exec_non_live,
                 irrelevance_non_live,
             ],
             display_na_if_category_missing=False,
@@ -399,6 +496,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multiple_exec_non_live["display_accuracy"],
                 parallel_exec_non_live["display_accuracy"],
                 parallel_multiple_exec_non_live["display_accuracy"],
+                nestful_multiple_exec_non_live["display_accuracy"],
                 irrelevance_non_live["display_accuracy"],
             ]
         )
@@ -450,7 +548,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
         multi_turn_base = get_category_score(value, "multi_turn_base")
         multi_turn_base_extended_double = get_category_score(value, "multi_turn_base_extended_double")
         multi_turn_base_extended_full = get_category_score(value, "multi_turn_base_extended_full")
-        multi_turn_base_extended_900tools = get_category_score(value, "multi_turn_base_extended_900tools")        
+        multi_turn_base_extended_900tools = get_category_score(value, "multi_turn_base_extended_900tools")
         multi_turn_miss_func = get_category_score(value, "multi_turn_miss_func")
         multi_turn_miss_param = get_category_score(value, "multi_turn_miss_param")
         multi_turn_long_context = get_category_score(value, "multi_turn_long_context")
@@ -525,6 +623,7 @@ def generate_leaderboard_csv(leaderboard_table, output_path, eval_models=None, e
                 multiple_exec_non_live["display_accuracy"],
                 parallel_exec_non_live["display_accuracy"],
                 parallel_multiple_exec_non_live["display_accuracy"],
+                nestful_multiple_exec_non_live["display_accuracy"],
                 overall_accuracy_live["display_accuracy"],
                 python_simple_ast_live["display_accuracy"],
                 python_multiple_ast_live["display_accuracy"],
