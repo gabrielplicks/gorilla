@@ -3,11 +3,13 @@ import time
 from functools import lru_cache
 
 import requests  # Do not remove this import even though it seems to be unused. It's used in the executable_checker_rest function.
+
 from bfcl.eval_checker.constant import (
     REAL_TIME_MATCH_ALLOWED_DIFFERENCE,
     REST_EVAL_GROUND_TRUTH_PATH,
 )
 from bfcl.eval_checker.executable_eval.custom_exception import NoAPIKeyError
+
 
 # Load the ground truth data for the `rest` test category
 @lru_cache(maxsize=1)  # cache the result, effectively loading data once
@@ -15,10 +17,11 @@ def load_eval_ground_truth():
     with open(REST_EVAL_GROUND_TRUTH_PATH, "r") as f:
         return f.readlines()
 
+
 #### Main function ####
 def executable_checker_rest(func_call, idx):
     EVAL_GROUND_TRUTH = load_eval_ground_truth()
-    
+
     if "https://geocode.maps.co" in func_call:
         time.sleep(2)
     if "requests_get" in func_call:
@@ -48,9 +51,7 @@ def executable_checker_rest(func_call, idx):
                         }
                     return {
                         "valid": False,
-                        "error": [
-                            f"Expected dictionary, but got {type(response.json())}"
-                        ],
+                        "error": [f"Expected dictionary, but got {type(response.json())}"],
                         "error_type": "executable_checker_rest:wrong_type",
                     }
 
@@ -65,9 +66,7 @@ def executable_checker_rest(func_call, idx):
 
                         else:
                             for i in range(len(eval_GT_json)):
-                                if set(eval_GT_json[i].keys()) != set(
-                                    response.json()[i].keys()
-                                ):
+                                if set(eval_GT_json[i].keys()) != set(response.json()[i].keys()):
                                     return {
                                         "valid": False,
                                         "error": [f"Key inconsistency"],
@@ -78,32 +77,24 @@ def executable_checker_rest(func_call, idx):
                     else:
                         return {
                             "valid": False,
-                            "error": [
-                                f"Expected list, but got {type(response.json())}"
-                            ],
+                            "error": [f"Expected list, but got {type(response.json())}"],
                             "error_type": "executable_checker_rest:wrong_type",
                         }
                 return {
                     "valid": False,
-                    "error": [
-                        f"Expected dict or list, but got {type(response.json())}"
-                    ],
+                    "error": [f"Expected dict or list, but got {type(response.json())}"],
                     "error_type": "executable_checker_rest:wrong_type",
                 }
             except Exception as e:
                 return {
                     "valid": False,
-                    "error": [
-                        f"Error in execution and type checking. Status code: {response.status_code}. Error: {str(e)}"
-                    ],
+                    "error": [f"Error in execution and type checking. Status code: {response.status_code}. Error: {str(e)}"],
                     "error_type": "executable_checker_rest:response_format_error",
                 }
         else:
             return {
                 "valid": False,
-                "error": [
-                    f"Execution result status code is not 200, got {response.status_code}"
-                ],
+                "error": [f"Execution result status code is not 200, got {response.status_code}"],
                 "error_type": "executable_checker_rest:wrong_status_code",
             }
     except Exception as e:
@@ -120,6 +111,7 @@ def executable_checker_non_rest(decoded_result: list, func_description: dict, te
             decoded_result,
             func_description["execution_result"],
             func_description["execution_result_type"],
+            test_category,
         )
 
     else:
@@ -144,9 +136,7 @@ def patten_matcher(exec_output, expected_result, function_call, is_sanity_check)
     if type(exec_output) != type(expected_result):
         return {
             "valid": False,
-            "error": [
-                f"Wrong execution result type for {repr(function_call)}. Expected type: {type(expected_result)}, but got: {type(exec_output)}."
-            ],
+            "error": [f"Wrong execution result type for {repr(function_call)}. Expected type: {type(expected_result)}, but got: {type(exec_output)}."],
             "error_type": "executable_checker:wrong_result_type",
             "model_executed_output": exec_output,
         }
@@ -170,9 +160,7 @@ def patten_matcher(exec_output, expected_result, function_call, is_sanity_check)
             if key not in exec_output:
                 return {
                     "valid": False,
-                    "error": [
-                        f"Wrong execution result pattern for {repr(function_call)}. Expect type Dict, but key {repr(key)} not found in the model output."
-                    ],
+                    "error": [f"Wrong execution result pattern for {repr(function_call)}. Expect type Dict, but key {repr(key)} not found in the model output."],
                     "error_type": "executable_checker:wrong_result_type:dict_key_not_found",
                     "model_executed_output": exec_output,
                 }
@@ -180,9 +168,7 @@ def patten_matcher(exec_output, expected_result, function_call, is_sanity_check)
             if key not in expected_result:
                 return {
                     "valid": False,
-                    "error": [
-                        f"Wrong execution result pattern for {repr(function_call)}. Expect type Dict, but key {repr(key)} not expected in the model output."
-                    ],
+                    "error": [f"Wrong execution result pattern for {repr(function_call)}. Expect type Dict, but key {repr(key)} not expected in the model output."],
                     "error_type": "executable_checker:wrong_result_type:dict_extra_key",
                     "model_executed_output": exec_output,
                 }
@@ -204,24 +190,43 @@ def executable_checker_simple(
     expected_result,
     expected_result_type: str,
     is_sanity_check=False,
+    test_category="",
 ):
     result = {"valid": True, "error": [], "error_type": "executable_checker:unclear"}
 
     exec_dict = {}
 
     try:
-        exec(
-            "from bfcl.eval_checker.executable_eval.data.executable_python_function import *" + "\nresult=" + function_call,
-            exec_dict,
-        )
+        # If NESTful is in the prompt file, run the NESTful functions, else normal BFCL
+        if "nestful" in test_category:
+            # Load function map
+            with open("executable_eval/nestful_functions/func_file_map.json", "r") as f:
+                function2file_map = json.load(f)
+            # Load all functions
+            function_imports = []
+            import_str_template = "from bfcl.eval_checker.executable_eval.nestful_functions.basic_functions import *"
+            import_str_template += "\nfrom bfcl.eval_checker.executable_eval.nestful_functions.{filename} import {function}"
+            for function, filename in function2file_map.items():
+                filename = filename.replace(".py", "")
+                function_imports.append(import_str_template.format(filename=filename, function=function))
+            function_imports_str = "\n".join(function_imports)
+
+            # Execute the function
+            exec(
+                function_imports_str + "\nresult=" + function_call,
+                exec_dict,
+            )
+        else:
+            exec(
+                "from bfcl.eval_checker.executable_eval.data.executable_python_function import *" + "\nresult=" + function_call,
+                exec_dict,
+            )
         exec_output = exec_dict["result"]
     except NoAPIKeyError as e:
         raise e
     except Exception as e:
         result["valid"] = False
-        result["error"].append(
-            f"Error in execution: {repr(function_call)}. Error: {str(e)}"
-        )
+        result["error"].append(f"Error in execution: {repr(function_call)}. Error: {str(e)}")
         result["error_type"] = "executable_checker:execution_error"
         return result
 
@@ -233,23 +238,15 @@ def executable_checker_simple(
     if expected_result_type == "exact_match":
         if exec_output != expected_result:
             result["valid"] = False
-            result["error"].append(
-                f"Wrong execution result for {repr(function_call)}. Expected: {expected_result}, but got: {exec_output}."
-            )
+            result["error"].append(f"Wrong execution result for {repr(function_call)}. Expected: {expected_result}, but got: {exec_output}.")
             result["error_type"] = "executable_checker:wrong_result"
             result["model_executed_output"] = exec_output
             return result
 
     elif expected_result_type == "real_time_match":
         # Allow for 5% difference
-        if (type(expected_result) == float or type(expected_result) == int) and (
-            type(exec_output) == float or type(exec_output) == int
-        ):
-            if not (
-                expected_result * (1 - REAL_TIME_MATCH_ALLOWED_DIFFERENCE)
-                <= exec_output
-                <= expected_result * (1 + REAL_TIME_MATCH_ALLOWED_DIFFERENCE)
-            ):
+        if (type(expected_result) == float or type(expected_result) == int) and (type(exec_output) == float or type(exec_output) == int):
+            if not (expected_result * (1 - REAL_TIME_MATCH_ALLOWED_DIFFERENCE) <= exec_output <= expected_result * (1 + REAL_TIME_MATCH_ALLOWED_DIFFERENCE)):
                 result["valid"] = False
                 result["error"].append(
                     f"Wrong execution result for {repr(function_call)}. Expected: {expected_result}, but got: {exec_output}. {REAL_TIME_MATCH_ALLOWED_DIFFERENCE * 100}% difference allowed."
@@ -268,25 +265,19 @@ def executable_checker_simple(
 
     else:
         # structural match
-        pattern_match_result = patten_matcher(
-            exec_output, expected_result, function_call, is_sanity_check
-        )
+        pattern_match_result = patten_matcher(exec_output, expected_result, function_call, is_sanity_check)
         if not pattern_match_result["valid"]:
             return pattern_match_result
 
     return result
 
 
-def executable_checker_parallel_no_order(
-    decoded_result: list, expected_exec_result: list, expected_exec_result_type: list
-):
+def executable_checker_parallel_no_order(decoded_result: list, expected_exec_result: list, expected_exec_result_type: list, test_category: str):
 
     if len(decoded_result) != len(expected_exec_result):
         return {
             "valid": False,
-            "error": [
-                f"Wrong number of functions provided. Expected {len(expected_exec_result)}, but got {len(decoded_result)}."
-            ],
+            "error": [f"Wrong number of functions provided. Expected {len(expected_exec_result)}, but got {len(decoded_result)}."],
             "error_type": "value_error:exec_result_count",
         }
 
@@ -302,6 +293,7 @@ def executable_checker_parallel_no_order(
                 expected_exec_result[i],
                 expected_exec_result_type[i],
                 False,
+                test_category,
             )
 
             if result["valid"]:
@@ -313,19 +305,13 @@ def executable_checker_parallel_no_order(
                         f"Model Result Index {index}": {
                             "sub_error": result["error"],
                             "sub_error_type": result["error_type"],
-                            "model_executed_output": (
-                                result["model_executed_output"]
-                                if "model_executed_output" in result
-                                else None
-                            ),
+                            "model_executed_output": (result["model_executed_output"] if "model_executed_output" in result else None),
                         }
                     }
                 )
 
         if not result["valid"]:
-            considered_indices = [
-                i for i in range(len(decoded_result)) if i not in matched_indices
-            ]
+            considered_indices = [i for i in range(len(decoded_result)) if i not in matched_indices]
             all_errors.insert(
                 0,
                 f"Could not find a matching function among index {considered_indices} of model output for index {i} of possible answers.",
