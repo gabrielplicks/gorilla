@@ -25,6 +25,7 @@ from bfcl.utils import (
     check_api_key_supplied,
     is_executable,
     is_multi_turn,
+    is_nestful,
     parse_test_category_argument,
     sort_key,
 )
@@ -84,7 +85,7 @@ def get_involved_test_entries(test_category_args, run_ids):
             test_file_path = TEST_FILE_MAPPING[category]
             all_test_entries_involved.extend([entry for entry in load_file(PROMPT_PATH / test_file_path) if entry["id"] in test_ids])
             # Skip executable test category if api key is not provided in the .env file
-            if is_executable(category) and not api_key_supplied:
+            if (is_executable(category) and not api_key_supplied) and not is_nestful(category):
                 skipped_categories.append(category)
             else:
                 all_test_categories.append(category)
@@ -94,7 +95,7 @@ def get_involved_test_entries(test_category_args, run_ids):
         all_test_file_paths, all_test_categories = parse_test_category_argument(test_category_args)
         # Make a copy here since we are removing list elemenets inside the for loop
         for test_category, file_to_open in zip(all_test_categories[:], all_test_file_paths[:]):
-            if is_executable(test_category) and not api_key_supplied:
+            if (is_executable(test_category) and not api_key_supplied) and not is_nestful(test_category):
                 all_test_categories.remove(test_category)
                 all_test_file_paths.remove(file_to_open)
                 skipped_categories.append(test_category)
@@ -422,8 +423,11 @@ def main(args):
 
     # Apply function credential config if any of the test categories are executable
     # We can know for sure that any executable categories will not be included if the API Keys are not supplied.
-    if any([is_executable(category) for category in all_test_categories]):
-        apply_function_credential_config(input_path=PROMPT_PATH)
+    # if any([is_executable(category) for category in all_test_categories]):
+    #     apply_function_credential_config(input_path=PROMPT_PATH)
+    for category in all_test_categories:
+        if is_executable(category) and not is_nestful(category):
+            apply_function_credential_config(input_path=PROMPT_PATH / TEST_FILE_MAPPING[category])
 
     if args.result_dir is not None:
         args.result_dir = PROJECT_ROOT / args.result_dir
