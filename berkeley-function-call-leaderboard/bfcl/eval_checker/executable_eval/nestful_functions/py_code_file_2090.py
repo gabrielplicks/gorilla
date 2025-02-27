@@ -1,9 +1,7 @@
 from typing import List
 
 
-
 def prefix_checker(input_string: str, string_list: List[str]) -> bool:
-
     """Determines if the input string is a prefix of any of the strings in the list.
 
 
@@ -31,12 +29,10 @@ def prefix_checker(input_string: str, string_list: List[str]) -> bool:
     return False
 
 
+# input_string = "ABC"
 
-input_string = "ABC"
+# string_list = ["ABCDE", "ABCD", "ABC"]
 
-string_list = ["ABCDE", "ABCD", "ABC"]
+# result = prefix_checker(input_string, string_list)
 
-result = prefix_checker(input_string, string_list)
-
-print(result)
-
+# print(result)

@@ -1,11 +1,9 @@
-import torch
-
 from typing import Tuple
 
+import torch
 
 
 def y(x: torch.Tensor) -> torch.Tensor:
-
     """Computes the reciprocal of a tensor.
 
 
@@ -25,10 +23,8 @@ def y(x: torch.Tensor) -> torch.Tensor:
     return 1 / x
 
 
+# x = torch.tensor([1, 2, 3])
 
-x = torch.tensor([1, 2, 3])
+# result = y(x)
 
-result = y(x)
-
-print(result)
-
+# print(result)

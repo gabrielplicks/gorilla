@@ -1,5 +1,4 @@
-from typing import List, Any
-
+from typing import Any, List
 
 
 class Person:
@@ -11,21 +10,10 @@ class Person:
         self.age = age
 
 
-
-peeps = [
-
-    Person("Alice", 25),
-
-    Person("Bob", 30),
-
-    Person("Charlie", 28)
-
-]
-
+peeps = [Person("Alice", 25), Person("Bob", 30), Person("Charlie", 28)]
 
 
 def get_instance_attribute_values(instance_list: List[Any], attribute: str) -> List[Any]:
-
     """Returns a list of all the values of a specific data attribute for each instance.
 
 
@@ -41,8 +29,6 @@ def get_instance_attribute_values(instance_list: List[Any], attribute: str) -> L
     return [getattr(instance, attribute) for instance in instance_list]
 
 
+# names = get_instance_attribute_values(peeps, 'name')
 
-names = get_instance_attribute_values(peeps, 'name')
-
-print(names) # Output: ["Alice", "Bob", "Charlie"]
-
+# print(names) # Output: ["Alice", "Bob", "Charlie"]

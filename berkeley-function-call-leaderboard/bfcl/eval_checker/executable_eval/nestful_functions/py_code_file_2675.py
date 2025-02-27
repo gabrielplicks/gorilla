@@ -1,7 +1,6 @@
 from typing import List
 
 
-
 class Person:
 
     def __init__(self, name: str, age: int):
@@ -11,9 +10,7 @@ class Person:
         self.age = age
 
 
-
 def generate_formatted_string(people: List[Person]):
-
     """Generates a formatted string from a list of Person instances.
 
     Args:
@@ -31,16 +28,10 @@ def generate_formatted_string(people: List[Person]):
     return "\n".join(formatted_strings)
 
 
+# people = [
+#     Person("John", 27),
+#     Person("Mary", 25),
+#     Person("Lucy", 20),
+# ]
 
-people = [
-
-    Person("John", 27),
-
-    Person("Mary", 25),
-
-    Person("Lucy", 20),
-
-]
-
-print(generate_formatted_string(people))
-
+# print(generate_formatted_string(people))

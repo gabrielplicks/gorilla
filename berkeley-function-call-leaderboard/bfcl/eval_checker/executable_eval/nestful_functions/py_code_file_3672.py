@@ -1,7 +1,6 @@
 from typing import Any
 
 
-
 class MyList(list):
 
     def __len__(self):
@@ -9,9 +8,7 @@ class MyList(list):
         return super().__len__()
 
 
-
 def len_customized(c: Any) -> int:
-
     """Calculates the length of a collection.
 
 
@@ -31,8 +28,6 @@ def len_customized(c: Any) -> int:
     return c.__len__()
 
 
+# custom_list = MyList([1, 2, 3, 4, 5])
 
-custom_list = MyList([1, 2, 3, 4, 5])
-
-print(len_customized(custom_list))  # Output: 5
-
+# print(len_customized(custom_list))  # Output: 5

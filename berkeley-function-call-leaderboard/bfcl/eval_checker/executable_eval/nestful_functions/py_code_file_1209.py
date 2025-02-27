@@ -1,9 +1,7 @@
 from typing import Dict, List
 
 
-
 def calc_money(people: List[Dict[str, int]]) -> Dict[str, int]:
-
     """Calculates the total amount of money each person has.
 
 
@@ -24,19 +22,14 @@ def calc_money(people: List[Dict[str, int]]) -> Dict[str, int]:
 
     for person in people:
 
-        money[person['name']] = person['money']
+        money[person["name"]] = person["money"]
 
     return money
 
 
+# people = [
+#     {"name": "Alice", "money": 10},
+#     {"name": "Bob", "money": 20},
+# ]
 
-people = [
-
-    {'name': 'Alice', 'money': 10},
-
-    {'name': 'Bob', 'money': 20},
-
-]
-
-print(calc_money(people))
-
+# print(calc_money(people))

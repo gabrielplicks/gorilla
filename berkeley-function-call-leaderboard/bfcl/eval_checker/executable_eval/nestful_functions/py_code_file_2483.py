@@ -1,5 +1,4 @@
-from typing import Dict, Any
-
+from typing import Any, Dict
 
 
 class Person:
@@ -11,9 +10,7 @@ class Person:
         self.age = age
 
 
-
 def get_class_properties(cls: Any) -> Dict[str, Any]:
-
     """Returns a dictionary of class property names and values.
 
     Args:
@@ -31,8 +28,6 @@ def get_class_properties(cls: Any) -> Dict[str, Any]:
     return properties
 
 
+# person = Person("John", 30)
 
-person = Person("John", 30)
-
-print(get_class_properties(person))
-
+# print(get_class_properties(person))
