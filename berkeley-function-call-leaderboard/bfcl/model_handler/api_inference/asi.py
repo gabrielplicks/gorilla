@@ -49,7 +49,7 @@ class ASIHandler(BaseHandler):
         else:
             return default_decode_execute_prompting(result)
 
-    @retry_with_backoff(error_type=RateLimitError)
+    @retry_with_backoff(error_type=ASIException)
     def generate_with_backoff(self, **kwargs):
         start_time = time.time()
         api_response = self.get_completions(**kwargs)
@@ -216,26 +216,50 @@ class ASIHandler(BaseHandler):
         try:
             completion_dict = json.loads(response.text)
         except json.JSONDecodeError as exc:
-            print("Failed to decode JSON response from ASI API.")
-            if "<!DOCTYPE html>" in response.text:
-                print("The response is an HTML error page.")
-            else:
-                print("Response text:\n", response.text)
+            # print("Failed to decode JSON response from ASI API.")
+            # if "<!DOCTYPE html>" in response.text:
+            #     print("The response is an HTML error page.")
+            # else:
+            #     print("Response text:\n", response.text)
             raise ASIException("Failed to decode JSON response from ASI API.", 500) from exc
 
         # Some checks for special messages or errors
         if "message" in completion_dict:
+            # Save payload and response
+            curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
+                payload_file.write(payload)
+            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
+                response_file.write(response.text)
             raise ASIException(f"ASI API request failed with message {completion_dict['message']}. (Actual status code returned is {response.status_code})", 500)
 
         if "choices" in completion_dict:
             content = completion_dict["choices"][0]["message"]["content"]
             if content == "Something went wrong":
+                # Save payload and response
+                curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
+                    payload_file.write(payload)
+                with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
+                    response_file.write(response.text)
                 raise ASIException(f"ASI API request failed with 'Something went wrong' message. (Actual status code returned is {response.status_code})", 500)
 
         if response.status_code != 200:
+            # Save payload and response
+            curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
+                payload_file.write(payload)
+            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
+                response_file.write(response.text)
             raise ASIException(f"ASI API request failed with response {response}. (Actual status code returned is {response.status_code})", 500)
 
         if "choices" not in completion_dict or "message" not in completion_dict["choices"][0] or "content" not in completion_dict["choices"][0]["message"]:
+            # Save payload and response
+            curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
+                payload_file.write(payload)
+            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
+                response_file.write(response.text)
             raise ASIException(f"ASI API request failed: missing keys in response={response}. (Actual status code returned is {response.status_code})", 500)
 
         return completion_dict
@@ -245,7 +269,8 @@ class ASIHandler(BaseHandler):
         tools = kwargs.get("tools", [])
         try:
             completion_dict = self.call_asi_api(messages, tools)
-            print("ASI API response:", completion_dict)
+            # print("ASI API response:", completion_dict)
             return completion_dict
         except Exception as exc:
+            print(f"\nError while getting completions: {exc}\n")
             raise exc
