@@ -15,7 +15,6 @@ from bfcl.model_handler.constant import (
 )
 from bfcl.model_handler.model_style import ModelStyle
 from bfcl.utils import load_file, make_json_serializable, sort_key
-from overrides import final
 
 
 class BaseHandler:
@@ -26,9 +25,7 @@ class BaseHandler:
         self.model_name = model_name
         # Replace the slash with underscore to avoid creating subdirectories
         # Replace the dash and dot with underscore for valid variable name
-        self.model_name_underline_replaced = (
-            model_name.replace("/", "_").replace("-", "_").replace(".", "_")
-        )
+        self.model_name_underline_replaced = model_name.replace("/", "_").replace("-", "_").replace(".", "_")
         self.temperature = temperature
         self.is_fc_model = False  # Whether the model is a function calling model
 
@@ -45,18 +42,12 @@ class BaseHandler:
         # Prompting model
         else:
             if "multi_turn" in test_entry["id"]:
-                return self.inference_multi_turn_prompting(
-                    test_entry, include_input_log, exclude_state_log
-                )
+                return self.inference_multi_turn_prompting(test_entry, include_input_log, exclude_state_log)
             else:
-                return self.inference_single_turn_prompting(
-                    test_entry, include_input_log
-                )
+                return self.inference_single_turn_prompting(test_entry, include_input_log)
 
     @final
-    def inference_multi_turn_FC(
-        self, test_entry: dict, include_input_log: bool, exclude_state_log: bool
-    ) -> tuple[list[list], dict]:
+    def inference_multi_turn_FC(self, test_entry: dict, include_input_log: bool, exclude_state_log: bool) -> tuple[list[list], dict]:
         initial_config: dict = test_entry["initial_config"]
         involved_classes: list = test_entry["involved_classes"]
         test_entry_id: str = test_entry["id"]
@@ -69,12 +60,8 @@ class BaseHandler:
         total_input_token_count: list[list[float]] = []
         total_output_token_count: list[list[float]] = []
         total_latency: list[list[float]] = []
-        all_model_response: list[list] = (
-            []
-        )  # The model response that will be used for later evaluation
-        all_inference_log: list[list[dict]] = (
-            []
-        )  # The debugging log for human to understand
+        all_model_response: list[list] = []  # The model response that will be used for later evaluation
+        all_inference_log: list[list[dict]] = []  # The debugging log for human to understand
         force_quit = False  # Whether the model has been forced to quit. If True, this whole entry will be failed.
 
         # Execute no function call, but just to get a reference to all the instances to get the initial state for logging purpose
@@ -85,9 +72,7 @@ class BaseHandler:
                 involved_classes,
                 self.model_name_underline_replaced,
                 test_entry_id,
-                long_context=(
-                    "long_context" in test_category or "composite" in test_category
-                ),
+                long_context=("long_context" in test_category or "composite" in test_category),
                 is_evaL_run=False,
             )
             state_log = []
@@ -99,11 +84,7 @@ class BaseHandler:
                     {
                         "role": "state_info",
                         "class_name": class_name,
-                        "content": {
-                            key: value
-                            for key, value in vars(class_instance).items()
-                            if not key.startswith("_")
-                        },
+                        "content": {key: value for key, value in vars(class_instance).items() if not key.startswith("_")},
                     }
                 )
             all_inference_log.append(state_log)
@@ -120,9 +101,7 @@ class BaseHandler:
                 test_entry["function"].extend(holdout_function[str(turn_idx)])
                 # Since we have added new functions, we need to recompile the tools
                 inference_data = self._compile_tools(inference_data, test_entry)
-                assert (
-                    len(current_turn_message) == 0
-                ), "Holdout turn should not have user message."
+                assert len(current_turn_message) == 0, "Holdout turn should not have user message."
                 current_turn_message = [
                     {
                         "role": "user",
@@ -131,13 +110,9 @@ class BaseHandler:
                 ]
 
             if turn_idx == 0:
-                inference_data = self.add_first_turn_message_FC(
-                    inference_data, current_turn_message
-                )
+                inference_data = self.add_first_turn_message_FC(inference_data, current_turn_message)
             else:
-                inference_data = self._add_next_turn_user_message_FC(
-                    inference_data, current_turn_message
-                )
+                inference_data = self._add_next_turn_user_message_FC(inference_data, current_turn_message)
 
             current_turn_response = []
             current_turn_inference_log: list[dict] = {"begin_of_turn_query": current_turn_message}
@@ -148,9 +123,7 @@ class BaseHandler:
             count = 0
             while True:
                 print("-" * 100)
-                print(
-                    f"ID: {test_entry_id.replace('multi_turn_', '')}, Turn: {turn_idx}, Step: {count}"
-                )
+                print(f"ID: {test_entry_id.replace('multi_turn_', '')}, Turn: {turn_idx}, Step: {count}, Num Tools: {len(inference_data['tools'])}")
                 current_step_inference_log: list[dict] = []
                 # Add to the current_turn_inference_log at beginning of each step so that we don't need to bother dealing with the break statements
                 current_turn_inference_log[f"step_{count}"] = current_step_inference_log
@@ -172,9 +145,7 @@ class BaseHandler:
                 model_responses = model_response_data["model_responses"]
 
                 # Add the assistant message to the chat history
-                inference_data = self._add_assistant_message_FC(
-                    inference_data, model_response_data
-                )
+                inference_data = self._add_assistant_message_FC(inference_data, model_response_data)
 
                 # Process the metadata
                 current_turn_input_token_count.append(model_response_data["input_token"])
@@ -182,9 +153,7 @@ class BaseHandler:
                 current_turn_latency.append(query_latency)
 
                 current_turn_response.append(model_responses)
-                current_step_inference_log.append(
-                    {"role": "assistant", "content": model_responses}
-                )
+                current_step_inference_log.append({"role": "assistant", "content": model_responses})
 
                 # Try decoding the model response
                 try:
@@ -226,16 +195,12 @@ class BaseHandler:
                     involved_classes,
                     self.model_name_underline_replaced,
                     test_entry_id,
-                    long_context=(
-                        "long_context" in test_category or "composite" in test_category
-                    ),
+                    long_context=("long_context" in test_category or "composite" in test_category),
                     is_evaL_run=False,
                 )
 
                 # Add the execution results to the chat history for the next turn
-                inference_data = self._add_execution_results_FC(
-                    inference_data, execution_results, model_response_data
-                )
+                inference_data = self._add_execution_results_FC(inference_data, execution_results, model_response_data)
 
                 for execution_result in execution_results:
                     current_step_inference_log.append(
@@ -275,11 +240,7 @@ class BaseHandler:
                         {
                             "role": "state_info",
                             "class_name": class_name,
-                            "content": {
-                                key: value
-                                for key, value in vars(class_instance).items()
-                                if not key.startswith("_")
-                            },
+                            "content": {key: value for key, value in vars(class_instance).items() if not key.startswith("_")},
                         }
                     )
                 all_inference_log.append(state_log)
@@ -297,9 +258,7 @@ class BaseHandler:
         return all_model_response, metadata
 
     @final
-    def inference_multi_turn_prompting(
-        self, test_entry: dict, include_input_log: bool, exclude_state_log: bool
-    ) -> tuple[list[list], dict]:
+    def inference_multi_turn_prompting(self, test_entry: dict, include_input_log: bool, exclude_state_log: bool) -> tuple[list[list], dict]:
         initial_config: dict = test_entry["initial_config"]
         involved_classes: list = test_entry["involved_classes"]
         test_entry_id: str = test_entry["id"]
@@ -312,12 +271,8 @@ class BaseHandler:
         total_input_token_count: list[list[float]] = []
         total_output_token_count: list[list[float]] = []
         total_latency: list[list[float]] = []
-        all_model_response: list[list] = (
-            []
-        )  # The model response that will be used for later evaluation
-        all_inference_log: list[list[dict]] = (
-            []
-        )  # The debugging log for human to understand
+        all_model_response: list[list] = []  # The model response that will be used for later evaluation
+        all_inference_log: list[list[dict]] = []  # The debugging log for human to understand
         force_quit = False  # Whether the model has been forced to quit. If True, this whole entry will be failed.
 
         # Execute no function call, but just to get a reference to all the instances to get the initial state for logging purpose
@@ -328,9 +283,7 @@ class BaseHandler:
                 involved_classes,
                 self.model_name_underline_replaced,
                 test_entry_id,
-                long_context=(
-                    "long_context" in test_category or "composite" in test_category
-                ),
+                long_context=("long_context" in test_category or "composite" in test_category),
                 is_evaL_run=False,
             )
             state_log = []
@@ -342,11 +295,7 @@ class BaseHandler:
                     {
                         "role": "state_info",
                         "class_name": class_name,
-                        "content": {
-                            key: value
-                            for key, value in vars(class_instance).items()
-                            if not key.startswith("_")
-                        },
+                        "content": {key: value for key, value in vars(class_instance).items() if not key.startswith("_")},
                     }
                 )
             all_inference_log.append(state_log)
@@ -358,26 +307,18 @@ class BaseHandler:
             current_turn_message: list[dict]
 
             if str(turn_idx) in holdout_function:
-                assert (
-                    len(current_turn_message) == 0
-                ), "Holdout turn should not have user message."
+                assert len(current_turn_message) == 0, "Holdout turn should not have user message."
                 current_turn_message = [
                     {
                         "role": "user",
-                        "content": DEFAULT_USER_PROMPT_FOR_ADDITIONAL_FUNCTION_PROMPTING.format(
-                            functions=holdout_function[str(turn_idx)]
-                        ),
+                        "content": DEFAULT_USER_PROMPT_FOR_ADDITIONAL_FUNCTION_PROMPTING.format(functions=holdout_function[str(turn_idx)]),
                     }
                 ]
 
             if turn_idx == 0:
-                inference_data = self.add_first_turn_message_prompting(
-                    inference_data, current_turn_message
-                )
+                inference_data = self.add_first_turn_message_prompting(inference_data, current_turn_message)
             else:
-                inference_data = self._add_next_turn_user_message_prompting(
-                    inference_data, current_turn_message
-                )
+                inference_data = self._add_next_turn_user_message_prompting(inference_data, current_turn_message)
 
             current_turn_response = []
             current_turn_inference_log: list[dict] = {"begin_of_turn_query": current_turn_message}
@@ -388,9 +329,7 @@ class BaseHandler:
             count = 0
             while True:
                 print("-" * 100)
-                print(
-                    f"ID: {test_entry_id.replace('multi_turn_', '')}, Turn: {turn_idx}, Step: {count}"
-                )
+                print(f"ID: {test_entry_id.replace('multi_turn_', '')}, Turn: {turn_idx}, Step: {count}")
                 current_step_inference_log: list[dict] = []
                 # Add to the current_turn_inference_log at beginning of each step so that we don't need to bother dealing with the break statements
                 current_turn_inference_log[f"step_{count}"] = current_step_inference_log
@@ -412,9 +351,7 @@ class BaseHandler:
                 model_responses = model_response_data["model_responses"]
 
                 # Add the assistant message to the chat history
-                inference_data = self._add_assistant_message_prompting(
-                    inference_data, model_response_data
-                )
+                inference_data = self._add_assistant_message_prompting(inference_data, model_response_data)
 
                 # Process the metadata
                 current_turn_input_token_count.append(model_response_data["input_token"])
@@ -422,9 +359,7 @@ class BaseHandler:
                 current_turn_latency.append(query_latency)
 
                 current_turn_response.append(model_responses)
-                current_step_inference_log.append(
-                    {"role": "assistant", "content": model_responses}
-                )
+                current_step_inference_log.append({"role": "assistant", "content": model_responses})
 
                 # Try decoding the model response
                 try:
@@ -467,16 +402,12 @@ class BaseHandler:
                     involved_classes,
                     self.model_name_underline_replaced,
                     test_entry_id,
-                    long_context=(
-                        "long_context" in test_category or "composite" in test_category
-                    ),
+                    long_context=("long_context" in test_category or "composite" in test_category),
                     is_evaL_run=False,
                 )
 
                 # Add the execution results to the chat history for the next turn
-                inference_data = self._add_execution_results_prompting(
-                    inference_data, execution_results, model_response_data
-                )
+                inference_data = self._add_execution_results_prompting(inference_data, execution_results, model_response_data)
 
                 for execution_result in execution_results:
                     current_step_inference_log.append(
@@ -515,11 +446,7 @@ class BaseHandler:
                         {
                             "role": "state_info",
                             "class_name": class_name,
-                            "content": {
-                                key: value
-                                for key, value in vars(class_instance).items()
-                                if not key.startswith("_")
-                            },
+                            "content": {key: value for key, value in vars(class_instance).items() if not key.startswith("_")},
                         }
                     )
                 all_inference_log.append(state_log)
@@ -537,15 +464,11 @@ class BaseHandler:
         return all_model_response, metadata
 
     @final
-    def inference_single_turn_FC(
-        self, test_entry: dict, include_input_log: bool
-    ) -> tuple[any, dict]:
+    def inference_single_turn_FC(self, test_entry: dict, include_input_log: bool) -> tuple[any, dict]:
         inference_data: dict = {}
         inference_data = self._pre_query_processing_FC(inference_data, test_entry)
         inference_data = self._compile_tools(inference_data, test_entry)
-        inference_data = self.add_first_turn_message_FC(
-            inference_data, test_entry["question"][0]
-        )
+        inference_data = self.add_first_turn_message_FC(inference_data, test_entry["question"][0])
 
         api_response, query_latency = self._query_FC(inference_data)
 
@@ -568,13 +491,9 @@ class BaseHandler:
         return model_response_data["model_responses"], metadata
 
     @final
-    def inference_single_turn_prompting(
-        self, test_entry: dict, include_input_log: bool
-    ) -> tuple[any, dict]:
+    def inference_single_turn_prompting(self, test_entry: dict, include_input_log: bool) -> tuple[any, dict]:
         inference_data: dict = self._pre_query_processing_prompting(test_entry)
-        inference_data = self.add_first_turn_message_prompting(
-            inference_data, test_entry["question"][0]
-        )
+        inference_data = self.add_first_turn_message_prompting(inference_data, test_entry["question"][0])
 
         api_response, query_latency = self._query_prompting(inference_data)
 
@@ -697,9 +616,7 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def add_first_turn_message_FC(
-        self, inference_data: dict, first_turn_message: list[dict]
-    ) -> dict:
+    def add_first_turn_message_FC(self, inference_data: dict, first_turn_message: list[dict]) -> dict:
         """
         Add the first turn message to the chat history, in the format that the model expects.
 
@@ -715,9 +632,7 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def _add_next_turn_user_message_FC(
-        self, inference_data: dict, user_message: list[dict]
-    ) -> dict:
+    def _add_next_turn_user_message_FC(self, inference_data: dict, user_message: list[dict]) -> dict:
         """
         [Only for multi-turn]
         Add next turn user message to the chat history for query.
@@ -725,17 +640,13 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def _add_assistant_message_FC(
-        self, inference_data: dict, model_response_data: dict
-    ) -> dict:
+    def _add_assistant_message_FC(self, inference_data: dict, model_response_data: dict) -> dict:
         """
         Add assistant message to the chat history.
         """
         raise NotImplementedError
 
-    def _add_execution_results_FC(
-        self, inference_data: dict, execution_results: list[str], model_response_data: dict
-    ) -> dict:
+    def _add_execution_results_FC(self, inference_data: dict, execution_results: list[str], model_response_data: dict) -> dict:
         """
         Add the execution results to the chat history to prepare for the next turn of query.
         Some models may need to add additional information to the chat history, such as tool call IDs.
@@ -779,9 +690,7 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def add_first_turn_message_prompting(
-        self, inference_data: dict, first_turn_message: list[dict]
-    ) -> dict:
+    def add_first_turn_message_prompting(self, inference_data: dict, first_turn_message: list[dict]) -> dict:
         """
         Add the first turn message to the chat history, in the format that the model expects.
 
@@ -797,9 +706,7 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def _add_next_turn_user_message_prompting(
-        self, inference_data: dict, user_message: list[dict]
-    ) -> dict:
+    def _add_next_turn_user_message_prompting(self, inference_data: dict, user_message: list[dict]) -> dict:
         """
         [Only for multi-turn]
         Add next turn user message to the chat history for query.
@@ -807,17 +714,13 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def _add_assistant_message_prompting(
-        self, inference_data: dict, model_response_data: dict
-    ) -> dict:
+    def _add_assistant_message_prompting(self, inference_data: dict, model_response_data: dict) -> dict:
         """
         Add assistant message to the chat history.
         """
         raise NotImplementedError
 
-    def _add_execution_results_prompting(
-        self, inference_data: dict, execution_results: list[str], model_response_data: dict
-    ) -> dict:
+    def _add_execution_results_prompting(self, inference_data: dict, execution_results: list[str], model_response_data: dict) -> dict:
         """
         Add the execution results to the chat history to prepare for the next turn of query.
         By default, execution results are added back as a `user` role message, as most models don't support the `tool` role in prompting mode.
