@@ -227,10 +227,6 @@ class ASIHandler(BaseHandler):
         if "message" in completion_dict:
             # Save payload and response
             curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
-                payload_file.write(payload)
-            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
-                response_file.write(response.text)
             raise ASIException(f"ASI API request failed with message {completion_dict['message']}. (Actual status code returned is {response.status_code})", 500)
 
         if "choices" in completion_dict:
@@ -238,28 +234,16 @@ class ASIHandler(BaseHandler):
             if content == "Something went wrong":
                 # Save payload and response
                 curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
-                    payload_file.write(payload)
-                with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
-                    response_file.write(response.text)
                 raise ASIException(f"ASI API request failed with 'Something went wrong' message. (Actual status code returned is {response.status_code})", 500)
 
         if response.status_code != 200:
             # Save payload and response
             curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
-                payload_file.write(payload)
-            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
-                response_file.write(response.text)
             raise ASIException(f"ASI API request failed with response {response}. (Actual status code returned is {response.status_code})", 500)
 
         if "choices" not in completion_dict or "message" not in completion_dict["choices"][0] or "content" not in completion_dict["choices"][0]["message"]:
             # Save payload and response
             curr_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            with open(f"asi_api_payload_{curr_time}.json", "w") as payload_file:
-                payload_file.write(payload)
-            with open(f"asi_api_response_{curr_time}.json", "w") as response_file:
-                response_file.write(response.text)
             raise ASIException(f"ASI API request failed: missing keys in response={response}. (Actual status code returned is {response.status_code})", 500)
 
         return completion_dict
